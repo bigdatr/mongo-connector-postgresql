@@ -73,6 +73,7 @@ Limitations
 ~~~~~~~~~~~~
 
 This code is not perfect, it was written quickly in a "proof of concept" perspective. So there is a a lot of missing features :
+
 - it is not possible to handle rollback of mongodb, search and get_last_doc are not implemented.
 - it is not possible to handle system commands (create collection and so on), handle_command is not implemented
 - the code to perform bulk_upsert is not optimized and I think it won't work on large volume
