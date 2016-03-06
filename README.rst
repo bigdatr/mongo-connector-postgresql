@@ -80,5 +80,6 @@ This code is not perfect, it was written quickly in a "proof of concept" perspec
 - chunk_size is not used
 - it is only possible to work on the "public" schema" of postgresql
 - this plugin don't handle correctly embedded arrays.
+- only $set, $unset and $inc operators are managed. But most of the other update operators are about arrays and this plugin don't handle them.
 
 
