@@ -1,0 +1,10 @@
+.idea
+*.iml
+dist
+build
+MANIFEST
+mongo-connector.log
+oplog.timestamp
+mappings.json
+run-db.sh
+.*.swp

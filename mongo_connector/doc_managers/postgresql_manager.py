@@ -1,21 +1,22 @@
-import psycopg2
-from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
-from mongo_connector import errors
-from mongo_connector.compat import u
-from mongo_connector.doc_managers.formatters import DocumentFlattener
 import json
 import os.path
+
+import psycopg2
+from mongo_connector.compat import u
+from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
+from mongo_connector.doc_managers.formatters import DocumentFlattener
+
+from doc_managers.sql import sqlTableExists, sqlCreateTable, sqlInsert
+from mongo_connector import errors
+from utils import extractDocumentCreationDate, isCollectionMapped
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
 
 
 class DocManager(DocManagerBase):
-    """DocManager that connects to MyIndexingSystem"""
+    """DocManager that connects to any SQL database"""
 
-    def __init__(self, url, unique_key='_id',
-                 auto_commit_interval=None,
-                 chunk_size=100, **kwargs):
-
+    def __init__(self, url, unique_key='_id', auto_commit_interval=None, chunk_size=100, **kwargs):
         self.url = url
         self.unique_key = unique_key
         self.auto_commit_interval = auto_commit_interval
@@ -36,64 +37,63 @@ class DocManager(DocManagerBase):
             for collection in self.mappings[database]:
 
                 with self.pgsql.cursor() as cursor:
-                    cursor.execute(""
-                            "SELECT EXISTS ( "
-                            "        SELECT 1 "
-                            "FROM   information_schema.tables "
-                            "WHERE  table_schema = 'public' "
-                            "AND    table_name = '"+collection.lower()+"' "
-                            ");")
-                    result = cursor.fetchone()[0]
-                    if result is False:
+
+                    if not sqlTableExists(cursor, collection):
                         with self.pgsql.cursor() as cur:
 
-                            columns = []
+                            columns = ['_creationdate TIMESTAMP']
+
                             for column in self.mappings[database][collection]:
                                 columns.append(column + " " + self.mappings[database][collection][column]["type"])
-                            sql = "CREATE TABLE "+collection.lower()+" ("+ (",").join(columns) + ")"
-                            cur.execute(sql)
+
+                            sqlCreateTable(cur, collection, columns)
                             self.commit()
 
     def stop(self):
         pass
 
     def upsert(self, doc, namespace, timestamp):
+        # TODO: Refactor once bulkUpsert is done
+
         db, coll = self._db_and_collection(namespace)
         cleaned = self._clean_and_flatten_doc(doc, namespace, timestamp)
-        columns =[]
+        columns = []
         for key in cleaned:
             columns.append(key)
-        valuesPlaceholder = ("%("+column_name+")s" for column_name in columns)
+        valuesPlaceholder = ("%(" + column_name + ")s" for column_name in columns)
 
         with self.pgsql.cursor() as cursor:
-            sql = "INSERT INTO "+coll.lower()+" (" + (",").join(columns) + ") VALUES ("+ (",").join(valuesPlaceholder) +")"
+            sql = "INSERT INTO " + coll.lower() + " (" + (",").join(columns) + ") VALUES (" + (",").join(
+                    valuesPlaceholder) + ")"
             cursor.execute(sql, cleaned)
             self.commit()
 
     def bulk_upsert(self, docs, namespace, timestamp):
-        db, coll = self._db_and_collection(namespace)
-        cleaned = (self._clean_and_flatten_doc(d, namespace, timestamp) for d in docs)
-        for doc in cleaned:
-            values = (doc)
-            columns =[]
-            for key in doc:
-                columns.append(key)
-            valuesPlaceholder = ("%("+column_name+")s" for column_name in columns)
+        if isCollectionMapped(self.mappings, namespace):
+            db, collection = self._db_and_collection(namespace)
+            documents = (self._clean_and_flatten_doc(d, namespace, timestamp) for d in docs)
 
-            with self.pgsql.cursor() as cursor:
-                sql = "INSERT INTO "+coll.lower()+" (" + (",").join(columns) + ") VALUES ("+ (",").join(valuesPlaceholder) +")"
-                cursor.execute(sql, values)
-                self.commit()
+            for document in documents:
+                values = document
+                values['_creationdate'] = extractDocumentCreationDate(document)
+
+                columns = []
+                for key in document:
+                    columns.append(key)
+
+                with self.pgsql.cursor() as cursor:
+                    sqlInsert(cursor, collection, columns, values)
+                    self.commit()
 
     def update(self, document_id, update_spec, namespace, timestamp):
         db, coll = self._db_and_collection(namespace)
 
         update_conds = []
-        updates = {"_id" : document_id}
+        updates = {"_id": document_id}
         if "$set" in update_spec:
             updates.update(update_spec["$set"])
             for update in updates:
-                update_conds.append(update + "= %("+update+")s")
+                update_conds.append(update + "= %(" + update + ")s")
         if "$unset" in update_spec:
             removes = update_spec["$unset"]
             for remove in removes:
@@ -164,8 +164,10 @@ class DocManager(DocManagerBase):
             mappings_db = self.mappings[db]
             if coll in mappings_db:
                 mappings_coll = mappings_db[coll]
+
                 # Only include fields that are explicitly provided in the schema
                 def include_field(field):
                     return field in mappings_coll
+
                 return dict((k.replace(".", "_"), v) for k, v in flat_doc.items() if include_field(k))
         return {}
