@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # coding: utf8
+from doc_managers.utils import extractDocumentCreationDate
+
 
 def toSQLList(items):
     return ' ({0}) '.format(','.join(items))
@@ -19,7 +21,11 @@ def sqlCreateTable(cursor, tableName, columns):
     cursor.execute(sql)
 
 
-def sqlInsert(cursor, tableName, columns, values):
-    valuesPlaceholder = ("%(" + column_name + ")s" for column_name in columns)
-    sql = "INSERT INTO {0} {1} VALUES {2}".format(tableName, toSQLList(columns), toSQLList(valuesPlaceholder))
-    cursor.execute(sql, values)
+def sqlInsert(cursor, tableName, document):
+    document['_creationDate'] = extractDocumentCreationDate(document)
+
+    keys = document.keys()
+    valuesPlaceholder = ("%(" + column_name + ")s" for column_name in keys)
+    sql = "INSERT INTO {0} {1} VALUES {2}".format(tableName, toSQLList(keys), toSQLList(valuesPlaceholder))
+
+    cursor.execute(sql, document)

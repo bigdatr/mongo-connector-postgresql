@@ -1,4 +1,5 @@
 import json
+import logging
 import os.path
 
 import psycopg2
@@ -8,7 +9,7 @@ from mongo_connector.doc_managers.formatters import DocumentFlattener
 
 from doc_managers.sql import sqlTableExists, sqlCreateTable, sqlInsert
 from mongo_connector import errors
-from utils import extractDocumentCreationDate, isCollectionMapped
+from utils import isCollectionMapped, keepPrimitiveFields, getArrayFields
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
 
@@ -23,6 +24,15 @@ class DocManager(DocManagerBase):
         self.chunk_size = chunk_size
         self._formatter = DocumentFlattener()
         self.pgsql = psycopg2.connect(url)
+
+        formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+        steam_handler = logging.StreamHandler()
+        steam_handler.setFormatter(formatter)
+        steam_handler.setLevel(logging.DEBUG)
+
+        self.logger = logging.getLogger('SQLDocManager')
+        self.logger.setLevel(logging.DEBUG)
+        self.logger.addHandler(steam_handler)
 
         if not os.path.isfile(MAPPINGS_JSON_FILE_NAME):
             raise errors.InvalidConfiguration("no mapping file found")
@@ -44,7 +54,10 @@ class DocManager(DocManagerBase):
                             columns = ['_creationdate TIMESTAMP']
 
                             for column in self.mappings[database][collection]:
-                                columns.append(column + " " + self.mappings[database][collection][column]["type"])
+                                columnType = self.mappings[database][collection][column]['type']
+
+                                if columnType != '_ARRAY':
+                                    columns.append(column + " " + columnType)
 
                             sqlCreateTable(cur, collection, columns)
                             self.commit()
@@ -68,22 +81,31 @@ class DocManager(DocManagerBase):
             cursor.execute(sql, cleaned)
             self.commit()
 
-    def bulk_upsert(self, docs, namespace, timestamp):
+    def bulk_upsert(self, documents, namespace, timestamp):
+        self.logger.info('Inspecting %s...', namespace)
+
         if isCollectionMapped(self.mappings, namespace):
+            self.logger.info('Mapping found for %s ! Inserting...', namespace)
             db, collection = self._db_and_collection(namespace)
-            documents = (self._clean_and_flatten_doc(d, namespace, timestamp) for d in docs)
 
-            for document in documents:
-                values = document
-                values['_creationdate'] = extractDocumentCreationDate(document)
+            with self.pgsql.cursor() as cursor:
+                for document in documents:
+                    sqlInsert(cursor, collection, keepPrimitiveFields(self.mappings, db, collection, document, False))
 
-                columns = []
-                for key in document:
-                    columns.append(key)
+                    for arrayField in getArrayFields(self.mappings, db, collection, document):
+                        dest = self.mappings[db][collection][arrayField]['dest']
+                        values = document[arrayField]
 
-                with self.pgsql.cursor() as cursor:
-                    sqlInsert(cursor, collection, columns, values)
+                        for value in values:
+                            self.insert_linked_document(cursor, str(document['_id']), db, dest,
+                                                               keepPrimitiveFields(self.mappings, db, dest, value, False))
                     self.commit()
+
+    def insert_linked_document(self, cursor, source_id, db, table, document):
+        mappedDocument = keepPrimitiveFields(self.mappings, db, table, document, False)
+        mappedDocument['_sourceId'] = source_id
+
+        sqlInsert(cursor, table, mappedDocument)
 
     def update(self, document_id, update_spec, namespace, timestamp):
         db, coll = self._db_and_collection(namespace)
