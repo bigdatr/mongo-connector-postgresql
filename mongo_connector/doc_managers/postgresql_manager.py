@@ -7,7 +7,7 @@ from mongo_connector.compat import u
 from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
 from mongo_connector.doc_managers.formatters import DocumentFlattener
 
-from doc_managers.sql import sql_table_exists, sql_create_table, sql_insert
+from doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, sql_bulk_insert
 from mongo_connector import errors
 from utils import get_array_fields
 
@@ -103,8 +103,13 @@ class DocManager(DocManagerBase):
         self.logger.info('Inspecting %s...', namespace)
 
         if self._is_mapped(namespace):
-            self.logger.info('Mapping found for '
-                             '%s ! Inserting...', namespace)
+            self.logger.info('Mapping found for %s !...', namespace)
+            self.logger.info('Deleting all rows before update %s !...', namespace)
+
+            db, collection = self._db_and_collection(namespace)
+            sql_delete_rows(self.pgsql.cursor(), collection)
+            self.commit()
+
             self._bulk_upsert(documents, namespace, timestamp)
             self.logger.info('%s done.', namespace)
 
@@ -112,13 +117,16 @@ class DocManager(DocManagerBase):
         db, collection = self._db_and_collection(namespace)
 
         with self.pgsql.cursor() as cursor:
+            document_buffer = []
             for document in documents:
-                self._upsert(namespace, document, cursor, timestamp)
-
+                document_buffer.append(self._mapped_document(document, namespace))
                 self.insert_accumulator[collection] += 1
 
                 if self.insert_accumulator[collection] % self.chunk_size == 0:
+                    sql_bulk_insert(cursor, self.mappings, db, collection, document_buffer)
                     self.commit()
+                    document_buffer = []
+
                     self.logger.info('%s %s copied...', self.insert_accumulator[collection], namespace)
 
     def insert_linked_documents(self, fk_name, source_id, db, table, documents, timestamp):
