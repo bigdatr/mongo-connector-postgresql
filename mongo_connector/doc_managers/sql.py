@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # coding: utf8
+import logging
+
 from mongo_connector.doc_managers.mappings import get_mapped_document
 from mongo_connector.doc_managers.utils import extract_creation_date, get_array_fields, db_and_collection
 
+LOG = logging.getLogger(__name__)
 
 def to_sql_list(items):
     return ' ({0}) '.format(','.join(items))
@@ -61,7 +64,7 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
     cursor.execute(sql)
 
 
-def sql_insert(cursor, tableName, document, primary_key, logger):
+def sql_insert(cursor, tableName, document, primary_key):
     creationDate = extract_creation_date(document, primary_key)
     if creationDate is not None:
         document['_creationDate'] = creationDate
@@ -87,7 +90,7 @@ def sql_insert(cursor, tableName, document, primary_key, logger):
     try:
         cursor.execute(sql, document)
     except Exception as e:
-        logger.error(u"Impossible to upsert the following document %s : %s", document, e)
+        LOG.error(u"Impossible to upsert the following document %s : %s", document, e)
 
 
 def to_sql_value(value):

@@ -18,6 +18,7 @@ from mongo_connector.doc_managers.utils import get_array_fields, db_and_collecti
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
 
+LOG = logging.getLogger(__name__)
 
 class DocManager(DocManagerBase):
     """DocManager that connects to any SQL database"""
@@ -33,15 +34,6 @@ class DocManager(DocManagerBase):
         self._formatter = DocumentFlattener()
         self.pgsql = psycopg2.connect(url)
         self.insert_accumulator = {}
-
-        formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
-        steam_handler = logging.StreamHandler()
-        steam_handler.setFormatter(formatter)
-        steam_handler.setLevel(logging.DEBUG)
-
-        self.logger = logging.getLogger('SQLDocManager')
-        self.logger.setLevel(logging.DEBUG)
-        self.logger.addHandler(steam_handler)
 
         if not os.path.isfile(MAPPINGS_JSON_FILE_NAME):
             raise errors.InvalidConfiguration("no mapping file found")
@@ -98,7 +90,7 @@ class DocManager(DocManagerBase):
         db, collection = db_and_collection(namespace)
 
         mapped_document = get_mapped_document(self.mappings, document, namespace)
-        sql_insert(cursor, collection, mapped_document, self.mappings[db][collection]['pk'], self.logger)
+        sql_insert(cursor, collection, mapped_document, self.mappings[db][collection]['pk'])
 
         for arrayField in get_array_fields(self.mappings, db, collection, document):
             dest = self.mappings[db][collection][arrayField]['dest']
@@ -110,18 +102,18 @@ class DocManager(DocManagerBase):
                 self._upsert(dest_namespace, document, cursor, timestamp)
 
     def bulk_upsert(self, documents, namespace, timestamp):
-        self.logger.info('Inspecting %s...', namespace)
+        LOG.info('Inspecting %s...', namespace)
 
         if is_mapped(self.mappings, namespace):
-            self.logger.info('Mapping found for %s !...', namespace)
-            self.logger.info('Deleting all rows before update %s !...', namespace)
+            LOG.info('Mapping found for %s !...', namespace)
+            LOG.info('Deleting all rows before update %s !...', namespace)
 
             db, collection = db_and_collection(namespace)
             sql_delete_rows(self.pgsql.cursor(), collection)
             self.commit()
 
             self._bulk_upsert(documents, namespace)
-            self.logger.info('%s done.', namespace)
+            LOG.info('%s done.', namespace)
 
     def _bulk_upsert(self, documents, namespace):
         with self.pgsql.cursor() as cursor:
@@ -137,7 +129,7 @@ class DocManager(DocManagerBase):
                     self.commit()
                     document_buffer = []
 
-                    self.logger.info('%s %s copied...', insert_accumulator, namespace)
+                    LOG.info('%s %s copied...', insert_accumulator, namespace)
 
             sql_bulk_insert(cursor, self.mappings, namespace, document_buffer)
             self.commit()
