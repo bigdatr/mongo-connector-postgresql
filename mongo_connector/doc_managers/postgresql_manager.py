@@ -133,6 +133,9 @@ class DocManager(DocManagerBase):
 
                     self.logger.info('%s %s copied...', self.insert_accumulator[collection], namespace)
 
+            sql_bulk_insert(cursor, self.mappings, db, collection, document_buffer)
+            self.commit()
+
     def insert_linked_documents(self, fk_name, source_id, db, table, documents, timestamp):
         for document in documents:
             document[fk_name] = source_id
