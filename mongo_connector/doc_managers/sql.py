@@ -19,11 +19,11 @@ def sql_table_exists(cursor, table):
 
 
 def sql_delete_rows(cursor, table):
-    cursor.execute("DELETE FROM {0}".format(table.lower()))
+    cursor.execute(u"DELETE FROM {0}".format(table.lower()))
 
 
 def sql_create_table(cursor, tableName, columns):
-    sql = "CREATE TABLE {0} {1}".format(tableName.lower(), to_sql_list(columns))
+    sql = u"CREATE TABLE {0} {1}".format(tableName.lower(), to_sql_list(columns))
     cursor.execute(sql)
 
 
@@ -39,9 +39,9 @@ def sql_bulk_insert(cursor, mappings, db, tableName, documents):
                 document_values.append(to_sql_value(document[key]))
             else:
                 document_values.append(to_sql_value(None))
-        values.append("({0})".format(','.join(document_values)))
+        values.append(u"({0})".format(u','.join(document_values)))
 
-    sql = "INSERT INTO {0} ({1}) VALUES {2}".format(tableName, ','.join(['_creationDate'] + keys), ",".join(values))
+    sql = u"INSERT INTO {0} ({1}) VALUES {2}".format(tableName, u','.join(['_creationDate'] + keys), u",".join(values))
     cursor.execute(sql, document)
 
 
@@ -54,14 +54,14 @@ def sql_insert(cursor, tableName, document, primary_key, logger):
     valuesPlaceholder = ("%(" + column_name + ")s" for column_name in keys)
 
     if primary_key in document:
-        sql = "INSERT INTO {0} {1} VALUES {2} ON CONFLICT ({3}) DO UPDATE SET {1} = {2}".format(
+        sql = u"INSERT INTO {0} {1} VALUES {2} ON CONFLICT ({3}) DO UPDATE SET {1} = {2}".format(
                 tableName,
                 to_sql_list(keys),
                 to_sql_list(valuesPlaceholder),
                 primary_key
         )
     else:
-        sql = "INSERT INTO {0} {1} VALUES {2}".format(
+        sql = u"INSERT INTO {0} {1} VALUES {2}".format(
                 tableName,
                 to_sql_list(keys),
                 to_sql_list(valuesPlaceholder),
@@ -71,7 +71,7 @@ def sql_insert(cursor, tableName, document, primary_key, logger):
     try:
         cursor.execute(sql, document)
     except Exception as e:
-        logger.error("Impossible to upsert the following document %s : %s", document, e)
+        logger.error(u"Impossible to upsert the following document %s : %s", document, e)
 
 
 def to_sql_value(value):
@@ -84,4 +84,8 @@ def to_sql_value(value):
     if isinstance(value, bool):
         return str(value).upper()
 
-    return "'{0}'".format(str(value))
+    if isinstance(value, basestring):
+        escaped_value = value.replace("'", "''")
+        return u"'{0}'".format(escaped_value)
+
+    return u"'{0}'".format(str(value))
