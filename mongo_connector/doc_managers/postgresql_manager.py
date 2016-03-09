@@ -167,6 +167,9 @@ class DocManager(DocManagerBase):
                     mapped_fied = self._get_mapped_field(namespace, increment)
                     update_conds.append(mapped_fied + "= " + mapped_fied + " + 1")
 
+        if not update_conds:
+            return
+
         sql = "UPDATE {0} SET {1} WHERE {2} = %({2})s".format(collection, ",".join(update_conds), primary_key)
         with self.pgsql.cursor() as cursor:
             cursor.execute(sql, updates)
