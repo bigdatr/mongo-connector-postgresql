@@ -7,15 +7,19 @@ from mongo_connector.compat import u
 from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
 from mongo_connector.doc_managers.formatters import DocumentFlattener
 
-from doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, sql_bulk_insert
 from mongo_connector import errors
-from utils import get_array_fields
+from mongo_connector.doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, \
+    sql_bulk_insert
+from mongo_connector.doc_managers.utils import get_array_fields
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
 
 
 class DocManager(DocManagerBase):
     """DocManager that connects to any SQL database"""
+
+    def insert_file(self, f, namespace, timestamp):
+        pass
 
     def __init__(self, url, unique_key='_id', auto_commit_interval=None, chunk_size=100, **kwargs):
         self.url = url

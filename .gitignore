@@ -9,3 +9,4 @@ oplog.timestamp
 mappings.json
 run-db.sh
 .*.swp
+publish.sh

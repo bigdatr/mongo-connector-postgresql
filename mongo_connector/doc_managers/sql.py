@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf8
 
-from doc_managers.utils import extract_creation_date
+from mongo_connector.doc_managers.utils import extract_creation_date
 
 
 def to_sql_list(items):
