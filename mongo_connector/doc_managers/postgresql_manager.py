@@ -1,16 +1,20 @@
+#!/usr/bin/env python
+# coding: utf8
+
+
 import json
 import logging
 import os.path
 
 import psycopg2
-from mongo_connector.compat import u
 from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
 from mongo_connector.doc_managers.formatters import DocumentFlattener
 
 from mongo_connector import errors
+from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_field, get_mapped_document, get_primary_key
 from mongo_connector.doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, \
     sql_bulk_insert
-from mongo_connector.doc_managers.utils import get_array_fields
+from mongo_connector.doc_managers.utils import get_array_fields, db_and_collection
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
 
@@ -83,7 +87,7 @@ class DocManager(DocManagerBase):
         pass
 
     def upsert(self, doc, namespace, timestamp):
-        if not self._is_mapped(namespace):
+        if not is_mapped(self.mappings, namespace):
             return
 
         with self.pgsql.cursor() as cursor:
@@ -91,62 +95,58 @@ class DocManager(DocManagerBase):
             self.commit()
 
     def _upsert(self, namespace, document, cursor, timestamp):
-        db, collection = self._db_and_collection(namespace)
+        db, collection = db_and_collection(namespace)
 
-        mapped_document = self._mapped_document(document, namespace)
+        mapped_document = get_mapped_document(self.mappings, document, namespace)
         sql_insert(cursor, collection, mapped_document, self.mappings[db][collection]['pk'], self.logger)
 
         for arrayField in get_array_fields(self.mappings, db, collection, document):
             dest = self.mappings[db][collection][arrayField]['dest']
             fk = self.mappings[db][collection][arrayField]['fk']
-            values = document[arrayField]
+            dest_namespace = u"{0}.{1}".format(db, dest)
 
-            self.insert_linked_documents(fk, str(document['_id']), db, dest, values, timestamp)
+            for arrayItem in document[arrayField]:
+                arrayItem[fk] = document[get_primary_key(self.mappings, namespace)]
+                self._upsert(dest_namespace, document, cursor, timestamp)
 
     def bulk_upsert(self, documents, namespace, timestamp):
         self.logger.info('Inspecting %s...', namespace)
 
-        if self._is_mapped(namespace):
+        if is_mapped(self.mappings, namespace):
             self.logger.info('Mapping found for %s !...', namespace)
             self.logger.info('Deleting all rows before update %s !...', namespace)
 
-            db, collection = self._db_and_collection(namespace)
+            db, collection = db_and_collection(namespace)
             sql_delete_rows(self.pgsql.cursor(), collection)
             self.commit()
 
-            self._bulk_upsert(documents, namespace, timestamp)
+            self._bulk_upsert(documents, namespace)
             self.logger.info('%s done.', namespace)
 
-    def _bulk_upsert(self, documents, namespace, timestamp):
-        db, collection = self._db_and_collection(namespace)
-
+    def _bulk_upsert(self, documents, namespace):
         with self.pgsql.cursor() as cursor:
             document_buffer = []
-            for document in documents:
-                document_buffer.append(self._mapped_document(document, namespace))
-                self.insert_accumulator[collection] += 1
+            insert_accumulator = 0
 
-                if self.insert_accumulator[collection] % self.chunk_size == 0:
-                    sql_bulk_insert(cursor, self.mappings, db, collection, document_buffer)
+            for document in documents:
+                document_buffer.append(document)
+                insert_accumulator += 1
+
+                if insert_accumulator % self.chunk_size == 0:
+                    sql_bulk_insert(cursor, self.mappings, namespace, document_buffer)
                     self.commit()
                     document_buffer = []
 
-                    self.logger.info('%s %s copied...', self.insert_accumulator[collection], namespace)
+                    self.logger.info('%s %s copied...', insert_accumulator, namespace)
 
-            sql_bulk_insert(cursor, self.mappings, db, collection, document_buffer)
+            sql_bulk_insert(cursor, self.mappings, namespace, document_buffer)
             self.commit()
 
-    def insert_linked_documents(self, fk_name, source_id, db, table, documents, timestamp):
-        for document in documents:
-            document[fk_name] = source_id
-
-        self._bulk_upsert(documents, db + '.' + table, timestamp)
-
     def update(self, document_id, update_spec, namespace, timestamp):
-        if not self._is_mapped(namespace):
+        if not is_mapped(self.mappings, namespace):
             return
 
-        db, collection = self._db_and_collection(namespace)
+        db, collection = db_and_collection(namespace)
         primary_key = self.mappings[db][collection]['pk']
 
         update_conds = []
@@ -154,20 +154,20 @@ class DocManager(DocManagerBase):
         if "$set" in update_spec:
             updates.update(update_spec["$set"])
             for update in updates:
-                if self._is_mapped(namespace, update):
-                    update_conds.append(self._get_mapped_field(namespace, update) + " = %(" + update + ")s")
+                if is_mapped(self.mappings, namespace, update):
+                    update_conds.append(get_mapped_field(self.mappings, namespace, update) + " = %(" + update + ")s")
 
         if "$unset" in update_spec:
             removes = update_spec["$unset"]
             for remove in removes:
-                if self._is_mapped(namespace, remove):
-                    update_conds.append(self._get_mapped_field(namespace, remove) + " = NULL")
+                if is_mapped(self.mappings, namespace, remove):
+                    update_conds.append(get_mapped_field(self.mappings, namespace, remove) + " = NULL")
 
         if "$inc" in update_spec:
             increments = update_spec["$inc"]
             for increment in increments:
-                if self._is_mapped(namespace, increment):
-                    mapped_fied = self._get_mapped_field(namespace, increment)
+                if is_mapped(self.mappings, namespace, increment):
+                    mapped_fied = get_mapped_field(self.mappings, namespace, increment)
                     update_conds.append(mapped_fied + "= " + mapped_fied + " + 1")
 
         if not update_conds:
@@ -179,11 +179,11 @@ class DocManager(DocManagerBase):
             self.commit()
 
     def remove(self, document_id, namespace, timestamp):
-        if not self._is_mapped(namespace):
+        if not is_mapped(self.mappings, namespace):
             return
 
         with self.pgsql.cursor() as cursor:
-            db, collection = self._db_and_collection(namespace)
+            db, collection = db_and_collection(namespace)
             primary_key = self.mappings[db][collection]['pk']
             cursor.execute(
                     "DELETE from {0} WHERE {1} = '{2}';".format(collection.lower(), primary_key, str(document_id))
@@ -201,72 +201,3 @@ class DocManager(DocManagerBase):
 
     def handle_command(self, doc, namespace, timestamp):
         pass
-
-    def _db_and_collection(self, namespace):
-        return namespace.split('.', 1)
-
-    def _clean_and_flatten_doc(self, doc, namespace):
-        """Reformats the given document before insertion into Solr.
-        This method reformats the document in the following ways:
-          - removes extraneous fields that aren't defined in schema.xml
-          - unwinds arrays in order to find and later flatten sub-documents
-          - flattens the document so that there are no sub-documents, and every
-            value is associated with its dot-separated path of keys
-          - inserts namespace and timestamp metadata into the document in order
-            to handle rollbacks
-        An example:
-          {"a": 2,
-           "b": {
-             "c": {
-               "d": 5
-             }
-           },
-           "e": [6, 7, 8]
-          }
-        becomes:
-          {"a": 2, "b.c.d": 5, "e.0": 6, "e.1": 7, "e.2": 8}
-        """
-
-        # Translate the _id field to whatever unique key we're using.
-        if '_id' in doc:
-            doc[self.unique_key] = u(doc.pop("_id"))
-
-        # PGSQL cannot index fields within sub-documents, so flatten documents
-        # with the dot-separated path to each value as the respective key
-        flat_doc = self._formatter.format_document(doc)
-
-        # Extract column names and mappings for this table
-        db, coll = self._db_and_collection(namespace)
-        if db in self.mappings:
-            mappings_db = self.mappings[db]
-            if coll in mappings_db:
-                mappings_coll = mappings_db[coll]
-
-                # Only include fields that are explicitly provided in the schema
-                def include_field(field):
-                    return field in mappings_coll
-
-                return dict((k, v) for k, v in flat_doc.items() if include_field(k))
-        return {}
-
-    def _mapped_document(self, document, namespace):
-        flat_document = self._clean_and_flatten_doc(document, namespace)
-
-        db, collection = self._db_and_collection(namespace)
-        keys = flat_document.keys()
-
-        for key in keys:
-            if 'dest' in self.mappings[db][collection][key]:
-                mappedKey = self.mappings[db][collection][key]['dest']
-                flat_document[mappedKey] = flat_document.pop(key)
-
-        return flat_document
-
-    def _get_mapped_field(self, namespace, field_name):
-        db, collection = self._db_and_collection(namespace)
-        return self.mappings[db][collection][field_name]['dest']
-
-    def _is_mapped(self, namespace, field_name=None):
-        db, collection = self._db_and_collection(namespace)
-        return db in self.mappings and collection in self.mappings[db] and \
-               (field_name is None or field_name in self.mappings[db][collection])

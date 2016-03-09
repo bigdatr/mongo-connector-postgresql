@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# coding: utf8
+
+
 from bson.objectid import ObjectId
 
 
@@ -24,13 +28,13 @@ def is_field_mapped(mappings, db, collection, key):
 
 
 def get_array_fields(mappings, db, collection, document):
-    return dict(
-            (k.replace(".", "_"), map_value_to_pgsql(v)) for k, v in document.items()
-            if is_field_mapped(mappings, db, collection, k)
-            and isinstance(v, list)
-    )
+    return [k for k, v in mappings[db][collection].iteritems() if k in document and v['type'] == '_ARRAY']
 
 
 def map_value_to_pgsql(value):
     return value if not isinstance(value, ObjectId) else str(value)
+
+
+def db_and_collection(namespace):
+    return namespace.split('.', 1)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf8
-
-from mongo_connector.doc_managers.utils import extract_creation_date
+from mongo_connector.doc_managers.mappings import get_mapped_document
+from mongo_connector.doc_managers.utils import extract_creation_date, get_array_fields, db_and_collection
 
 
 def to_sql_list(items):
@@ -10,7 +10,7 @@ def to_sql_list(items):
 
 def sql_table_exists(cursor, table):
     cursor.execute(""
-                   "SELECT EXISTS ( "
+                   "SELECT EXISTS ("
                    "        SELECT 1 "
                    "FROM   information_schema.tables "
                    "WHERE  table_schema = 'public' "
@@ -27,21 +27,37 @@ def sql_create_table(cursor, tableName, columns):
     cursor.execute(sql)
 
 
-def sql_bulk_insert(cursor, mappings, db, tableName, documents):
-    keys = [v['dest'] for k, v in mappings[db][tableName].iteritems() if 'dest' in v and v['type'] != '_ARRAY']
+def sql_bulk_insert(cursor, mappings, namespace, documents):
+    if not documents:
+        return
+
+    db, collection = db_and_collection(namespace)
+
+    primary_key = mappings[db][collection]['pk']
+    keys = [v['dest'] for k, v in mappings[db][collection].iteritems() if 'dest' in v and v['type'] != '_ARRAY']
     values = []
 
     for document in documents:
-        document_values = [to_sql_value(extract_creation_date(document, mappings[db][tableName]['pk']))]
+        mapped_document = get_mapped_document(mappings, document, namespace)
+        document_values = [to_sql_value(extract_creation_date(mapped_document, mappings[db][collection]['pk']))]
 
         for key in keys:
-            if key in document:
-                document_values.append(to_sql_value(document[key]))
+            if key in mapped_document:
+                document_values.append(to_sql_value(mapped_document[key]))
             else:
                 document_values.append(to_sql_value(None))
         values.append(u"({0})".format(u','.join(document_values)))
 
-    sql = u"INSERT INTO {0} ({1}) VALUES {2}".format(tableName, u','.join(['_creationDate'] + keys), u",".join(values))
+        for arrayField in get_array_fields(mappings, db, collection, document):
+            dest = mappings[db][collection][arrayField]['dest']
+            fk = mappings[db][collection][arrayField]['fk']
+            linked_documents = document[arrayField]
+            for linked_document in linked_documents:
+                linked_document[fk] = mapped_document[primary_key]
+
+            sql_bulk_insert(cursor, mappings, "{0}.{1}".format(db, dest), linked_documents)
+
+    sql = u"INSERT INTO {0} ({1}) VALUES {2}".format(collection, u','.join(['_creationDate'] + keys), u",".join(values))
     cursor.execute(sql)
 
 
