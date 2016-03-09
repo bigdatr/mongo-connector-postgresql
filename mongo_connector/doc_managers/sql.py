@@ -28,7 +28,7 @@ def sql_create_table(cursor, tableName, columns):
 
 
 def sql_bulk_insert(cursor, mappings, db, tableName, documents):
-    keys = [v['dest'] for k, v in mappings[db][tableName].iteritems() if 'dest' in v]
+    keys = [v['dest'] for k, v in mappings[db][tableName].iteritems() if 'dest' in v and v['type'] != '_ARRAY']
     values = []
 
     for document in documents:
@@ -42,7 +42,7 @@ def sql_bulk_insert(cursor, mappings, db, tableName, documents):
         values.append(u"({0})".format(u','.join(document_values)))
 
     sql = u"INSERT INTO {0} ({1}) VALUES {2}".format(tableName, u','.join(['_creationDate'] + keys), u",".join(values))
-    cursor.execute(sql, document)
+    cursor.execute(sql)
 
 
 def sql_insert(cursor, tableName, document, primary_key, logger):
