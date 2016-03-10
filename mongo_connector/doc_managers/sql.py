@@ -104,6 +104,6 @@ def to_sql_value(value):
         return str(value).upper()
 
     if isinstance(value, basestring):
-        return u"'{0}'".format(value.encode('string-escape'))
+        return u"'{0}'".format(value.encode('unicode-escape').replace("'", "''"))
 
     return u"'{0}'".format(str(value))
