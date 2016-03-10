@@ -82,9 +82,12 @@ class DocManager(DocManagerBase):
         if not is_mapped(self.mappings, namespace):
             return
 
-        with self.pgsql.cursor() as cursor:
-            self._upsert(namespace, doc, cursor, timestamp)
-            self.commit()
+        try:
+            with self.pgsql.cursor() as cursor:
+                self._upsert(namespace, doc, cursor, timestamp)
+                self.commit()
+        except Exception as e:
+            LOG.error("Impossible to upsert %s to %s : %s", doc, namespace, e)
 
     def _upsert(self, namespace, document, cursor, timestamp):
         db, collection = db_and_collection(namespace)
