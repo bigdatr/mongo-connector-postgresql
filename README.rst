@@ -76,10 +76,7 @@ This code is not perfect, it was written quickly in a "proof of concept" perspec
 
 - it is not possible to handle rollback of mongodb, search and get_last_doc are not implemented.
 - it is not possible to handle system commands (create collection and so on), handle_command is not implemented
-- the code to perform bulk_upsert is not optimized and I think it won't work on large volume
-- chunk_size is not used
 - it is only possible to work on the "public" schema" of postgresql
-- this plugin don't handle correctly embedded arrays.
-- only $set, $unset and $inc operators are managed. But most of the other update operators are about arrays and this plugin don't handle them.
+- only $set, $unset and $inc operators are managed (but it covers a lot of use case with only those). 
 
 
