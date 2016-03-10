@@ -1,11 +1,19 @@
 #!/usr/bin/env python
 # coding: utf8
 import logging
+import re
+import unicodedata
 
 from mongo_connector.doc_managers.mappings import get_mapped_document
 from mongo_connector.doc_managers.utils import extract_creation_date, get_array_fields, db_and_collection
 
 LOG = logging.getLogger(__name__)
+
+
+all_chars = (unichr(i) for i in xrange(0x110000))
+control_chars = ''.join(c for c in all_chars if unicodedata.category(c) == 'Cc')
+control_char_re = re.compile('[%s]' % re.escape(control_chars))
+
 
 def to_sql_list(items):
     return ' ({0}) '.format(','.join(items))
@@ -93,6 +101,10 @@ def sql_insert(cursor, tableName, document, primary_key):
         LOG.error(u"Impossible to upsert the following document %s : %s", document, e)
 
 
+def remove_control_chars(s):
+    return control_char_re.sub('', s)
+
+
 def to_sql_value(value):
     if value is None:
         return 'NULL'
@@ -104,6 +116,6 @@ def to_sql_value(value):
         return str(value).upper()
 
     if isinstance(value, basestring):
-        return u"'{0}'".format(value.encode('unicode-escape').replace("'", "''"))
+        return u"'{0}'".format(remove_control_chars(value).replace("'", "''"))
 
     return u"'{0}'".format(str(value))
