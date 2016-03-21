@@ -87,7 +87,7 @@ class DocManager(DocManagerBase):
                 self._upsert(namespace, doc, cursor, timestamp)
                 self.commit()
         except Exception as e:
-            LOG.error("Impossible to upsert %s to %s : %s", doc, namespace, e)
+            LOG.error("Impossible to upsert %s to %s : %s", doc, namespace, e.message)
 
     def _upsert(self, namespace, document, cursor, timestamp):
         db, collection = db_and_collection(namespace)
