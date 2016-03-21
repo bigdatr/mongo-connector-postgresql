@@ -2,6 +2,7 @@
 # coding: utf8
 
 
+import traceback
 import json
 import logging
 import os.path
@@ -87,22 +88,24 @@ class DocManager(DocManagerBase):
                 self._upsert(namespace, doc, cursor, timestamp)
                 self.commit()
         except Exception as e:
-            LOG.error("Impossible to upsert %s to %s : %s", doc, namespace, e.message)
+            LOG.error("Impossible to upsert %s to %s\n%s", doc, namespace, traceback.format_exc())
 
     def _upsert(self, namespace, document, cursor, timestamp):
         db, collection = db_and_collection(namespace)
 
         mapped_document = get_mapped_document(self.mappings, document, namespace)
-        sql_insert(cursor, collection, mapped_document, self.mappings[db][collection]['pk'])
 
-        for arrayField in get_array_fields(self.mappings, db, collection, document):
-            dest = self.mappings[db][collection][arrayField]['dest']
-            fk = self.mappings[db][collection][arrayField]['fk']
-            dest_namespace = u"{0}.{1}".format(db, dest)
+        if mapped_document:
+            sql_insert(cursor, collection, mapped_document, self.mappings[db][collection]['pk'])
 
-            for arrayItem in document[arrayField]:
-                arrayItem[fk] = document[get_primary_key(self.mappings, namespace)]
-                self._upsert(dest_namespace, document, cursor, timestamp)
+            for arrayField in get_array_fields(self.mappings, db, collection, document):
+                dest = self.mappings[db][collection][arrayField]['dest']
+                fk = self.mappings[db][collection][arrayField]['fk']
+                dest_namespace = u"{0}.{1}".format(db, dest)
+
+                for arrayItem in document[arrayField]:
+                    arrayItem[fk] = mapped_document[get_primary_key(self.mappings, namespace)]
+                    self._upsert(dest_namespace, document, cursor, timestamp)
 
     def bulk_upsert(self, documents, namespace, timestamp):
         LOG.info('Inspecting %s...', namespace)
