@@ -107,6 +107,19 @@ class DocManager(DocManagerBase):
                     arrayItem[fk] = mapped_document[get_primary_key(self.mappings, namespace)]
                     self._upsert(dest_namespace, document, cursor, timestamp)
 
+
+    def get_linked_tables(self, database, collection):
+        linked_tables = []
+
+        for field in self.mappings[database][collection]:
+            field_mapping = self.mappings[database][collection][field]
+
+            if 'fk' in field_mapping:
+                linked_tables.append(field_mapping['dest'])
+        
+        return linked_tables 
+
+
     def bulk_upsert(self, documents, namespace, timestamp):
         LOG.info('Inspecting %s...', namespace)
 
@@ -115,6 +128,9 @@ class DocManager(DocManagerBase):
             LOG.info('Deleting all rows before update %s !...', namespace)
 
             db, collection = db_and_collection(namespace)
+            for linked_table in self.get_linked_tables(db, collection):
+                sql_delete_rows(self.pgsql.cursor(), linked_table)
+                
             sql_delete_rows(self.pgsql.cursor(), collection)
             self.commit()
 
