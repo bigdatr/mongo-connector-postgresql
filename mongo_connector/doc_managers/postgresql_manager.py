@@ -1,11 +1,10 @@
-#!/usr/bin/env python
 # coding: utf8
 
 
-import traceback
 import json
 import logging
 import os.path
+import traceback
 
 import psycopg2
 from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
@@ -165,6 +164,11 @@ class DocManager(DocManagerBase):
 
         update_conds = []
         updates = {primary_key: str(document_id)}
+
+        if not self.partial_update(update_spec):
+            self.upsert(update_spec, namespace, timestamp)
+            return
+
         if "$set" in update_spec:
             updates.update(update_spec["$set"])
             for update in updates:
@@ -191,6 +195,13 @@ class DocManager(DocManagerBase):
         with self.pgsql.cursor() as cursor:
             cursor.execute(sql, updates)
             self.commit()
+
+
+    def partial_update(self, update_spec):
+        return "$set" in update_spec or "$unset" in update_spec or "$inc" in update_spec \
+               or "$mul" in update_spec or "$rename" in update_spec \
+               or "$min" in update_spec or "$max" in update_spec
+
 
     def remove(self, document_id, namespace, timestamp):
         if not is_mapped(self.mappings, namespace):
