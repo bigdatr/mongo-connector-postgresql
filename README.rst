@@ -50,6 +50,10 @@ This file should be named mappings.json. Here is a sample :
     	"my_mongo_database": {
     		"my_mongo_collection": {
     		    "pk": "id",
+                 "indices": [
+                     "UNIQUE INDEX category_idx ON LeadMonitoring(category)",
+                     "UNIQUE INDEX conversationDate_idx ON LeadMonitoring(conversation_date)"
+                ],
     			"_id": {
     				"dest": "id",
     				"type": "TEXT"
