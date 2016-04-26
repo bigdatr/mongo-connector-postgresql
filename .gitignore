@@ -11,3 +11,4 @@ mappings_bak.json
 run-db.sh
 .*.swp
 publish.sh
+reset.sh
