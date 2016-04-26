@@ -55,7 +55,8 @@ class DocManager(DocManagerBase):
                             pk_found = False
                             pk_name = self.mappings[database][collection]['pk']
                             columns = ['_creationdate TIMESTAMP']
-                            indices = self.mappings[database][collection].get('indices', [])
+                            indices = [u"INDEX idx_{0}__creation_date ON {0} (_creationdate DESC)".format(collection)] + \
+                                      self.mappings[database][collection].get('indices', [])
 
                             for column in self.mappings[database][collection]:
                                 if 'dest' in self.mappings[database][collection][column]:
