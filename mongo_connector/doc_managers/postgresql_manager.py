@@ -55,6 +55,7 @@ class DocManager(DocManagerBase):
                             pk_found = False
                             pk_name = self.mappings[database][collection]['pk']
                             columns = ['_creationdate TIMESTAMP']
+                            indices = self.mappings[database][collection].get('indices', [])
 
                             for column in self.mappings[database][collection]:
                                 if 'dest' in self.mappings[database][collection][column]:
@@ -73,6 +74,10 @@ class DocManager(DocManagerBase):
                                 columns.append(pk_name + ' SERIAL CONSTRAINT ' + collection.upper() + '_PK PRIMARY KEY')
 
                             sql_create_table(cur, collection, columns)
+
+                            for index in indices:
+                                cur.execute("CREATE " + index)
+
                             self.commit()
 
     def stop(self):
