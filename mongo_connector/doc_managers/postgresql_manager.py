@@ -20,6 +20,7 @@ MAPPINGS_JSON_FILE_NAME = 'mappings.json'
 
 LOG = logging.getLogger(__name__)
 
+
 class DocManager(DocManagerBase):
     """DocManager that connects to any SQL database"""
 
@@ -111,7 +112,6 @@ class DocManager(DocManagerBase):
                     arrayItem[fk] = mapped_document[get_primary_key(self.mappings, namespace)]
                     self._upsert(dest_namespace, document, cursor, timestamp)
 
-
     def get_linked_tables(self, database, collection):
         linked_tables = []
 
@@ -120,9 +120,8 @@ class DocManager(DocManagerBase):
 
             if 'fk' in field_mapping:
                 linked_tables.append(field_mapping['dest'])
-        
-        return linked_tables 
 
+        return linked_tables
 
     def bulk_upsert(self, documents, namespace, timestamp):
         LOG.info('Inspecting %s...', namespace)
@@ -134,7 +133,7 @@ class DocManager(DocManagerBase):
             db, collection = db_and_collection(namespace)
             for linked_table in self.get_linked_tables(db, collection):
                 sql_delete_rows(self.pgsql.cursor(), linked_table)
-                
+
             sql_delete_rows(self.pgsql.cursor(), collection)
             self.commit()
 
@@ -201,12 +200,10 @@ class DocManager(DocManagerBase):
             cursor.execute(sql, updates)
             self.commit()
 
-
     def partial_update(self, update_spec):
         return "$set" in update_spec or "$unset" in update_spec or "$inc" in update_spec \
                or "$mul" in update_spec or "$rename" in update_spec \
                or "$min" in update_spec or "$max" in update_spec
-
 
     def remove(self, document_id, namespace, timestamp):
         if not is_mapped(self.mappings, namespace):
@@ -216,7 +213,7 @@ class DocManager(DocManagerBase):
             db, collection = db_and_collection(namespace)
             primary_key = self.mappings[db][collection]['pk']
             cursor.execute(
-                    "DELETE from {0} WHERE {1} = '{2}';".format(collection.lower(), primary_key, str(document_id))
+                "DELETE from {0} WHERE {1} = '{2}';".format(collection.lower(), primary_key, str(document_id))
             )
             self.commit()
 
