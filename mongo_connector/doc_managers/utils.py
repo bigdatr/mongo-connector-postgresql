@@ -1,6 +1,4 @@
-#!/usr/bin/env python
 # coding: utf8
-
 
 from bson.objectid import ObjectId
 
@@ -37,4 +35,3 @@ def map_value_to_pgsql(value):
 
 def db_and_collection(namespace):
     return namespace.split('.', 1)
-

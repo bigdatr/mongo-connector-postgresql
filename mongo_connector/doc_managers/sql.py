@@ -1,5 +1,5 @@
-#!/usr/bin/env python
 # coding: utf8
+
 import logging
 import re
 import unicodedata
@@ -8,7 +8,6 @@ from mongo_connector.doc_managers.mappings import get_mapped_document
 from mongo_connector.doc_managers.utils import extract_creation_date, get_array_fields, db_and_collection
 
 LOG = logging.getLogger(__name__)
-
 
 all_chars = (unichr(i) for i in xrange(0x110000))
 control_chars = ''.join(c for c in all_chars if unicodedata.category(c) == 'Cc')
@@ -82,17 +81,17 @@ def sql_insert(cursor, tableName, document, primary_key):
 
     if primary_key in document:
         sql = u"INSERT INTO {0} {1} VALUES {2} ON CONFLICT ({3}) DO UPDATE SET {1} = {2}".format(
-                tableName,
-                to_sql_list(keys),
-                to_sql_list(valuesPlaceholder),
-                primary_key
+            tableName,
+            to_sql_list(keys),
+            to_sql_list(valuesPlaceholder),
+            primary_key
         )
     else:
         sql = u"INSERT INTO {0} {1} VALUES {2}".format(
-                tableName,
-                to_sql_list(keys),
-                to_sql_list(valuesPlaceholder),
-                primary_key
+            tableName,
+            to_sql_list(keys),
+            to_sql_list(valuesPlaceholder),
+            primary_key
         )
 
     try:

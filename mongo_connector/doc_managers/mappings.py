@@ -1,5 +1,5 @@
-#!/usr/bin/env python
 # coding: utf8
+
 from mongo_connector.doc_managers.formatters import DocumentFlattener
 
 from mongo_connector.doc_managers.utils import db_and_collection

@@ -1,6 +1,5 @@
 # coding: utf8
 
-
 import json
 import logging
 import os.path
@@ -9,8 +8,8 @@ import traceback
 import psycopg2
 from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
 from mongo_connector.doc_managers.formatters import DocumentFlattener
+from mongo_connector.errors import InvalidConfiguration
 
-from mongo_connector import errors
 from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_field, get_mapped_document, get_primary_key
 from mongo_connector.doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, \
     sql_bulk_insert
@@ -37,7 +36,7 @@ class DocManager(DocManagerBase):
         self.insert_accumulator = {}
 
         if not os.path.isfile(MAPPINGS_JSON_FILE_NAME):
-            raise errors.InvalidConfiguration("no mapping file found")
+            raise InvalidConfiguration("no mapping file found")
 
         with open(MAPPINGS_JSON_FILE_NAME) as mappings_file:
             self.mappings = json.load(mappings_file)
