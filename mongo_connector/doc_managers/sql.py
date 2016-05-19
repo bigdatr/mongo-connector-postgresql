@@ -4,6 +4,8 @@ import logging
 import re
 import unicodedata
 
+from psycopg2._psycopg import AsIs
+
 from mongo_connector.doc_managers.mappings import get_mapped_document
 from mongo_connector.doc_managers.utils import extract_creation_date, get_array_fields, db_and_collection
 
@@ -118,3 +120,7 @@ def to_sql_value(value):
         return u"'{0}'".format(remove_control_chars(value).replace("'", "''"))
 
     return u"'{0}'".format(str(value))
+
+
+def object_id_adapter(object_id):
+    return AsIs(to_sql_value(object_id))

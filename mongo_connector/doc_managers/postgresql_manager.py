@@ -6,13 +6,15 @@ import os.path
 import traceback
 
 import psycopg2
+from bson.objectid import ObjectId
 from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
 from mongo_connector.doc_managers.formatters import DocumentFlattener
 from mongo_connector.errors import InvalidConfiguration
+from psycopg2.extensions import register_adapter
 
 from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_field, get_mapped_document, get_primary_key
 from mongo_connector.doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, \
-    sql_bulk_insert
+    sql_bulk_insert, object_id_adapter
 from mongo_connector.doc_managers.utils import get_array_fields, db_and_collection
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
@@ -34,6 +36,8 @@ class DocManager(DocManagerBase):
         self._formatter = DocumentFlattener()
         self.pgsql = psycopg2.connect(url)
         self.insert_accumulator = {}
+
+        register_adapter(ObjectId, object_id_adapter)
 
         if not os.path.isfile(MAPPINGS_JSON_FILE_NAME):
             raise InvalidConfiguration("no mapping file found")
@@ -151,6 +155,7 @@ class DocManager(DocManagerBase):
 
                 if insert_accumulator % self.chunk_size == 0:
                     sql_bulk_insert(cursor, self.mappings, namespace, document_buffer)
+
                     self.commit()
                     document_buffer = []
 
