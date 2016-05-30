@@ -202,8 +202,13 @@ class DocManager(DocManagerBase):
 
         sql = "UPDATE {0} SET {1} WHERE {2} = %({2})s".format(collection, ",".join(update_conds), primary_key)
         with self.pgsql.cursor() as cursor:
-            cursor.execute(sql, updates)
-            self.commit()
+            try:
+                cursor.execute(sql, updates)
+                self.commit()
+            except Exception as e:
+                LOG.error(
+                    u"Impossible to update the following the document %s in collection %s with data : %s (exception: %s)",
+                    primary_key, collection, update_conds, e)
 
     def partial_update(self, update_spec):
         return "$set" in update_spec or "$unset" in update_spec or "$inc" in update_spec \
