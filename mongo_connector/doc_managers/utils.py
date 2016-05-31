@@ -26,7 +26,13 @@ def is_field_mapped(mappings, db, collection, key):
 
 
 def get_array_fields(mappings, db, collection, document):
-    return [k for k, v in mappings[db][collection].iteritems() if k in document and v['type'] == '_ARRAY']
+    if db not in mappings or collection not in mappings[db]:
+        return []
+
+    return [
+        k for k, v in mappings[db][collection].iteritems()
+        if k in document and 'type' in v and v['type'] == '_ARRAY'
+        ]
 
 
 def is_array_field(mappings, db, collection, field):

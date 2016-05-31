@@ -173,6 +173,9 @@ class DocManager(DocManagerBase):
         db, collection = db_and_collection(namespace)
         updated_document = self.get_document_by_id(db, collection, document_id)
 
+        if updated_document is None:
+            return
+
         for arrayField in get_array_fields(self.mappings, db, collection, updated_document):
             dest = self.mappings[db][collection][arrayField]['dest']
             fk = self.mappings[db][collection][arrayField]['fk']
