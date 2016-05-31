@@ -77,6 +77,9 @@ class DocManager(DocManagerBase):
                                         constraints = "CONSTRAINT {0}_PK PRIMARY KEY".format(collection.upper())
                                         pk_found = True
 
+                                    if column_type == '_ARRAY_OF_SCALARS':
+                                        column_type = 'TEXT'
+
                                     if column_type != '_ARRAY':
                                         columns.append(name + ' ' + column_type + ' ' + constraints)
 

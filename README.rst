@@ -140,6 +140,35 @@ Please notice the following :
 - The comments' mapping declares only the primary key but no mapping exists. The connector will generate the identifier automatically
 - The foreign key must be declared in the comments table so it's created with the schema initialization
 
+Finaly, the connector supports arrays of scalar. Let say your Mongo database stores the following documents :
+
+    {
+    	"posts": {
+    		"name": "Check out the mongo -> postgres connector",
+            "tags": ["Awesome", "Article", "Postgres"]
+    	}
+    }
+
+To allow the connector to map the post objects AND its comments, you should use the following mapping :
+
+    {
+        "my_mongo_database": {
+            "posts": {
+                "pk": "id",
+                "_id": {
+                    "dest": "id",
+                    "type": "TEXT"
+                },
+                "tags": {
+                    "dest": "tags",
+                    "type": "_ARRAY_OF_SCALARS"
+                }
+            }
+        }
+    }
+
+The scalar values will be packed into a string with the following separator : '--*--'
+
 Contribution / Limitations
 --------------------------
 
@@ -148,7 +177,6 @@ However, some features/improvements are currently lacking :
 
 - Their is no way to map a mongo collection to a differently named postgres table
 - There is virtually no error handling, especially if the mapping is wrong (e.g. missing pk field)
-- The connector does not support arrays of scalars (but do support arrays of documents)
 - Rollbacks are not supported
 - System commands are not supported (e.g. create collection)
 - Only operations on the 'public' schema are allowed
