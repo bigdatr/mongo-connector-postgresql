@@ -152,7 +152,6 @@ However, some features/improvements are currently lacking :
 - Rollbacks are not supported
 - System commands are not supported (e.g. create collection)
 - Only operations on the 'public' schema are allowed
-- Some operations are not implemented (only $set, $unset and $inc operators are)
 - Currently, because of our use of the ON CONFLICT directive, only PostgreSQL >= 9.5 can be used
 
 Even if this code is battle tested (we use it in production and fix for bugs every time we see one), it is far from
