@@ -29,9 +29,24 @@ def get_array_fields(mappings, db, collection, document):
     return [k for k, v in mappings[db][collection].iteritems() if k in document and v['type'] == '_ARRAY']
 
 
+def is_array_field(mappings, db, collection, field):
+    if not is_field_mapped(mappings, db, collection, field):
+        return False
+
+    return mappings[db][collection][field]['type'] == '_ARRAY'
+
+
 def map_value_to_pgsql(value):
     return value if not isinstance(value, ObjectId) else str(value)
 
 
 def db_and_collection(namespace):
     return namespace.split('.', 1)
+
+
+def get_array_field_collection(mappings, db, collection, field):
+    return mappings[db][collection][field]['dest']
+
+
+def get_foreign_key(mappings, db, collection, field):
+    return mappings[db][collection][field]['fk']

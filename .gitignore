@@ -12,3 +12,5 @@ run-db.sh
 .*.swp
 publish.sh
 reset.sh
+/config.json
+/pg-mongo-connector.log

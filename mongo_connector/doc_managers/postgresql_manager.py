@@ -11,10 +11,11 @@ from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
 from mongo_connector.doc_managers.formatters import DocumentFlattener
 from mongo_connector.errors import InvalidConfiguration
 from psycopg2.extensions import register_adapter
+from pymongo import MongoClient
 
-from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_field, get_mapped_document, get_primary_key
+from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_document, get_primary_key
 from mongo_connector.doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, \
-    sql_bulk_insert, object_id_adapter
+    sql_bulk_insert, object_id_adapter, sql_delete_rows_where, to_sql_value
 from mongo_connector.doc_managers.utils import get_array_fields, db_and_collection
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
@@ -29,6 +30,9 @@ class DocManager(DocManagerBase):
         pass
 
     def __init__(self, url, unique_key='_id', auto_commit_interval=None, chunk_size=100, **kwargs):
+        if 'mongoUrl' not in kwargs:
+            raise InvalidConfiguration("The MongoUrl parameter is mandatory.")
+
         self.url = url
         self.unique_key = unique_key
         self.auto_commit_interval = auto_commit_interval
@@ -36,6 +40,7 @@ class DocManager(DocManagerBase):
         self._formatter = DocumentFlattener()
         self.pgsql = psycopg2.connect(url)
         self.insert_accumulator = {}
+        self.client = MongoClient(kwargs['mongoUrl'])
 
         register_adapter(ObjectId, object_id_adapter)
 
@@ -114,7 +119,7 @@ class DocManager(DocManagerBase):
 
                 for arrayItem in document[arrayField]:
                     arrayItem[fk] = mapped_document[get_primary_key(self.mappings, namespace)]
-                    self._upsert(dest_namespace, document, cursor, timestamp)
+                    self._upsert(dest_namespace, arrayItem, cursor, timestamp)
 
     def get_linked_tables(self, database, collection):
         linked_tables = []
@@ -165,55 +170,23 @@ class DocManager(DocManagerBase):
             self.commit()
 
     def update(self, document_id, update_spec, namespace, timestamp):
-        if not is_mapped(self.mappings, namespace):
-            return
-
         db, collection = db_and_collection(namespace)
-        primary_key = self.mappings[db][collection]['pk']
+        updated_document = self.get_document_by_id(db, collection, document_id)
 
-        update_conds = []
-        updates = {primary_key: str(document_id)}
+        for arrayField in get_array_fields(self.mappings, db, collection, updated_document):
+            dest = self.mappings[db][collection][arrayField]['dest']
+            fk = self.mappings[db][collection][arrayField]['fk']
+            sql_delete_rows_where(self.pgsql.cursor(), dest,
+                                  "{0} = {1}".format(fk, to_sql_value(document_id)))
 
-        if not self.partial_update(update_spec):
-            self.upsert(update_spec, namespace, timestamp)
-            return
+        self._upsert(namespace,
+                     updated_document,
+                     self.pgsql.cursor(), timestamp)
 
-        if "$set" in update_spec:
-            updates.update(update_spec["$set"])
-            for update in updates:
-                if is_mapped(self.mappings, namespace, update):
-                    update_conds.append(get_mapped_field(self.mappings, namespace, update) + " = %(" + update + ")s")
+        self.commit()
 
-        if "$unset" in update_spec:
-            removes = update_spec["$unset"]
-            for remove in removes:
-                if is_mapped(self.mappings, namespace, remove):
-                    update_conds.append(get_mapped_field(self.mappings, namespace, remove) + " = NULL")
-
-        if "$inc" in update_spec:
-            increments = update_spec["$inc"]
-            for increment in increments:
-                if is_mapped(self.mappings, namespace, increment):
-                    mapped_fied = get_mapped_field(self.mappings, namespace, increment)
-                    update_conds.append(mapped_fied + "= " + mapped_fied + " + 1")
-
-        if not update_conds:
-            return
-
-        sql = "UPDATE {0} SET {1} WHERE {2} = %({2})s".format(collection, ",".join(update_conds), primary_key)
-        with self.pgsql.cursor() as cursor:
-            try:
-                cursor.execute(sql, updates)
-                self.commit()
-            except Exception as e:
-                LOG.error(
-                    u"Impossible to update the following the document %s in collection %s with data : %s (exception: %s)",
-                    primary_key, collection, update_conds, e)
-
-    def partial_update(self, update_spec):
-        return "$set" in update_spec or "$unset" in update_spec or "$inc" in update_spec \
-               or "$mul" in update_spec or "$rename" in update_spec \
-               or "$min" in update_spec or "$max" in update_spec
+    def get_document_by_id(self, db, collection, document_id):
+        return self.client[db][collection].find_one({'_id': document_id})
 
     def remove(self, document_id, namespace, timestamp):
         if not is_mapped(self.mappings, namespace):
