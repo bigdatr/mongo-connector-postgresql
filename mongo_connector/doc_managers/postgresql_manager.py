@@ -126,9 +126,12 @@ class DocManager(DocManagerBase):
             value_field = self.mappings[db][collection][scalarArrayField]['valueField']
             dest_namespace = u"{0}.{1}".format(db, dest)
 
-            for value in get_nested_field_from_document(document, scalarArrayField):
-                updated_item = {fk: mapped_document[get_primary_key(self.mappings, namespace)], value_field: value}
-                self._upsert(dest_namespace, updated_item, cursor, timestamp)
+            values = get_nested_field_from_document(document, scalarArrayField)
+
+            if values is not None and isinstance(values, list):
+                for value in values:
+                    updated_item = {fk: mapped_document[get_primary_key(self.mappings, namespace)], value_field: value}
+                    self._upsert(dest_namespace, updated_item, cursor, timestamp)
 
     def _upsert_array_fields(self, collection, cursor, db, document, mapped_document, namespace, timestamp):
         for arrayField in get_array_fields(self.mappings, db, collection, document):
