@@ -79,7 +79,7 @@ def get_nested_field_from_document(document, dot_notation_key):
         return document.get(dot_notation_key, None)
 
     partial_key = dot_notation_key.split('.')[0]
-    if partial_key not in document:
+    if not partial_key or partial_key not in document:
         return None
 
     return get_nested_field_from_document(document[partial_key], '.'.join(dot_notation_key.split('.')[1:]))
