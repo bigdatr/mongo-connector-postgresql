@@ -101,14 +101,3 @@ def get_scalar_array_fields(mappings, db, collection):
         k for k, v in mappings[db][collection].iteritems()
         if 'type' in v and v['type'] == ARRAY_OF_SCALARS_TYPE
         ]
-
-
-def get_nested_field_from_document(document, dot_notation_key):
-    if '.' not in dot_notation_key:
-        return document.get(dot_notation_key, None)
-
-    partial_key = dot_notation_key.split('.')[0]
-    if partial_key not in document:
-        return None
-
-    return get_nested_field_from_document(document[partial_key], '.'.join(dot_notation_key.split('.')[1:]))

@@ -2,9 +2,8 @@
 
 from bson.objectid import ObjectId
 
-ARRAY_TYPE = '_ARRAY'
-
-ARRAY_OF_SCALARS_TYPE = '_ARRAY_OF_SCALARS'
+ARRAY_TYPE = u'_ARRAY'
+ARRAY_OF_SCALARS_TYPE = u'_ARRAY_OF_SCALARS'
 
 
 def extract_creation_date(document, primary_key):
@@ -48,7 +47,7 @@ def get_fields_of_type(mappings, db, collection, document, type):
 
     return [
         k for k, v in mappings[db][collection].iteritems()
-        if k in document and 'type' in v and v['type'] == type
+        if get_nested_field_from_document(document, k) and 'type' in v and v['type'] == type
         ]
 
 
@@ -73,3 +72,14 @@ def get_array_field_collection(mappings, db, collection, field):
 
 def get_foreign_key(mappings, db, collection, field):
     return mappings[db][collection][field]['fk']
+
+
+def get_nested_field_from_document(document, dot_notation_key):
+    if '.' not in dot_notation_key:
+        return document.get(dot_notation_key, None)
+
+    partial_key = dot_notation_key.split('.')[0]
+    if partial_key not in document:
+        return None
+
+    return get_nested_field_from_document(document[partial_key], '.'.join(dot_notation_key.split('.')[1:]))

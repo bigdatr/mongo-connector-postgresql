@@ -8,7 +8,7 @@ from psycopg2._psycopg import AsIs
 
 from mongo_connector.doc_managers.mappings import get_mapped_document
 from mongo_connector.doc_managers.utils import extract_creation_date, get_array_fields, db_and_collection, \
-    get_array_of_scalar_fields, ARRAY_OF_SCALARS_TYPE, ARRAY_TYPE
+    get_array_of_scalar_fields, ARRAY_OF_SCALARS_TYPE, ARRAY_TYPE, get_nested_field_from_document
 
 LOG = logging.getLogger(__name__)
 
@@ -89,11 +89,11 @@ def insert_scalar_arrays(collection, cursor, db, document, mapped_document, mapp
         dest = mappings[db][collection][arrayField]['dest']
         fk = mappings[db][collection][arrayField]['fk']
         value_field = mappings[db][collection][arrayField]['valueField']
-        scalar_values = document[arrayField]
+        scalar_values = get_nested_field_from_document(document, arrayField)
 
         linked_documents = []
         for value in scalar_values:
-            linked_documents.append({fk: mapped_document[primary_key], value_field: to_sql_value(value)})
+            linked_documents.append({fk: mapped_document[primary_key], value_field: value})
 
         sql_bulk_insert(cursor, mappings, "{0}.{1}".format(db, dest), linked_documents)
 
@@ -102,7 +102,8 @@ def insert_document_arrays(collection, cursor, db, document, mapped_document, ma
     for arrayField in get_array_fields(mappings, db, collection, document):
         dest = mappings[db][collection][arrayField]['dest']
         fk = mappings[db][collection][arrayField]['fk']
-        linked_documents = document[arrayField]
+        linked_documents =  get_nested_field_from_document(document, arrayField)
+
         for linked_document in linked_documents:
             linked_document[fk] = mapped_document[primary_key]
 
