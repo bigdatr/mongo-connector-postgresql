@@ -18,7 +18,7 @@ from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_document
 from mongo_connector.doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, \
     sql_bulk_insert, object_id_adapter, sql_delete_rows_where, to_sql_value
 from mongo_connector.doc_managers.utils import get_array_fields, db_and_collection, get_any_array_fields, \
-    ARRAY_OF_SCALARS_TYPE, ARRAY_TYPE
+    ARRAY_OF_SCALARS_TYPE, ARRAY_TYPE, get_nested_field_from_document
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
 
@@ -126,7 +126,7 @@ class DocManager(DocManagerBase):
             value_field = self.mappings[db][collection][scalarArrayField]['valueField']
             dest_namespace = u"{0}.{1}".format(db, dest)
 
-            for value in document[scalarArrayField]:
+            for value in get_nested_field_from_document(document, scalarArrayField):
                 updated_item = {fk: mapped_document[get_primary_key(self.mappings, namespace)], value_field: value}
                 self._upsert(dest_namespace, updated_item, cursor, timestamp)
 
