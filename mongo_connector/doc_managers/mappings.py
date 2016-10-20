@@ -48,10 +48,6 @@ def _clean_and_flatten_doc(mappings, doc, namespace):
     return {}
 
 
-def to_scalar_string(scalar_array):
-    return u" --*-- ".join(scalar_array)
-
-
 def get_mapped_document(mappings, document, namespace):
     cleaned_and_flatten_document = _clean_and_flatten_doc(mappings, document, namespace)
 

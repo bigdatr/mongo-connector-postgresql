@@ -102,7 +102,7 @@ def insert_document_arrays(collection, cursor, db, document, mapped_document, ma
     for arrayField in get_array_fields(mappings, db, collection, document):
         dest = mappings[db][collection][arrayField]['dest']
         fk = mappings[db][collection][arrayField]['fk']
-        linked_documents =  get_nested_field_from_document(document, arrayField)
+        linked_documents = get_nested_field_from_document(document, arrayField)
 
         for linked_document in linked_documents:
             linked_document[fk] = mapped_document[primary_key]
