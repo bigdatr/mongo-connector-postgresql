@@ -13,10 +13,12 @@ from mongo_connector.errors import InvalidConfiguration
 from psycopg2.extensions import register_adapter
 from pymongo import MongoClient
 
-from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_document, get_primary_key
+from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_document, get_primary_key, \
+    get_scalar_array_fields
 from mongo_connector.doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, \
     sql_bulk_insert, object_id_adapter, sql_delete_rows_where, to_sql_value
-from mongo_connector.doc_managers.utils import get_array_fields, db_and_collection
+from mongo_connector.doc_managers.utils import get_array_fields, db_and_collection, get_any_array_fields, \
+    ARRAY_OF_SCALARS_TYPE, ARRAY_TYPE
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
 
@@ -53,6 +55,8 @@ class DocManager(DocManagerBase):
         self._init_schema()
 
     def _init_schema(self):
+        self.prepare_mappings()
+
         for database in self.mappings:
             for collection in self.mappings[database]:
                 self.insert_accumulator[collection] = 0
@@ -77,10 +81,7 @@ class DocManager(DocManagerBase):
                                         constraints = "CONSTRAINT {0}_PK PRIMARY KEY".format(collection.upper())
                                         pk_found = True
 
-                                    if column_type == '_ARRAY_OF_SCALARS':
-                                        column_type = 'TEXT'
-
-                                    if column_type != '_ARRAY':
+                                    if column_type != ARRAY_TYPE and column_type != ARRAY_OF_SCALARS_TYPE:
                                         columns.append(name + ' ' + column_type + ' ' + constraints)
 
                             if not pk_found:
@@ -115,14 +116,29 @@ class DocManager(DocManagerBase):
         if mapped_document:
             sql_insert(cursor, collection, mapped_document, self.mappings[db][collection]['pk'])
 
-            for arrayField in get_array_fields(self.mappings, db, collection, document):
-                dest = self.mappings[db][collection][arrayField]['dest']
-                fk = self.mappings[db][collection][arrayField]['fk']
-                dest_namespace = u"{0}.{1}".format(db, dest)
+            self._upsert_array_fields(collection, cursor, db, document, mapped_document, namespace, timestamp)
+            self.upsert_scalar_array_fields(collection, cursor, db, document, mapped_document, namespace, timestamp)
 
-                for arrayItem in document[arrayField]:
-                    arrayItem[fk] = mapped_document[get_primary_key(self.mappings, namespace)]
-                    self._upsert(dest_namespace, arrayItem, cursor, timestamp)
+    def upsert_scalar_array_fields(self, collection, cursor, db, document, mapped_document, namespace, timestamp):
+        for scalarArrayField in get_scalar_array_fields(self.mappings, db, collection):
+            dest = self.mappings[db][collection][scalarArrayField]['dest']
+            fk = self.mappings[db][collection][scalarArrayField]['fk']
+            value_field = self.mappings[db][collection][scalarArrayField]['valueField']
+            dest_namespace = u"{0}.{1}".format(db, dest)
+
+            for value in document[scalarArrayField]:
+                updated_item = {fk: mapped_document[get_primary_key(self.mappings, namespace)], value_field: value}
+                self._upsert(dest_namespace, updated_item, cursor, timestamp)
+
+    def _upsert_array_fields(self, collection, cursor, db, document, mapped_document, namespace, timestamp):
+        for arrayField in get_array_fields(self.mappings, db, collection, document):
+            dest = self.mappings[db][collection][arrayField]['dest']
+            fk = self.mappings[db][collection][arrayField]['fk']
+            dest_namespace = u"{0}.{1}".format(db, dest)
+
+            for arrayItem in document[arrayField]:
+                arrayItem[fk] = mapped_document[get_primary_key(self.mappings, namespace)]
+                self._upsert(dest_namespace, arrayItem, cursor, timestamp)
 
     def get_linked_tables(self, database, collection):
         linked_tables = []
@@ -179,7 +195,7 @@ class DocManager(DocManagerBase):
         if updated_document is None:
             return
 
-        for arrayField in get_array_fields(self.mappings, db, collection, updated_document):
+        for arrayField in get_any_array_fields(self.mappings, db, collection, updated_document):
             dest = self.mappings[db][collection][arrayField]['dest']
             fk = self.mappings[db][collection][arrayField]['fk']
             sql_delete_rows_where(self.pgsql.cursor(), dest,
@@ -217,3 +233,12 @@ class DocManager(DocManagerBase):
 
     def handle_command(self, doc, namespace, timestamp):
         pass
+
+    def prepare_mappings(self):
+        # Set default values for dest fields
+        for db in self.mappings:
+            for collection in self.mappings[db]:
+                for field in self.mappings[db][collection]:
+                    if isinstance(self.mappings[db][collection][field], dict):
+                        if 'dest' not in self.mappings[db][collection][field]:
+                            self.mappings[db][collection][field]['dest'] = field

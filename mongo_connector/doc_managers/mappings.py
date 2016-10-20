@@ -2,7 +2,7 @@
 
 from mongo_connector.doc_managers.formatters import DocumentFlattener
 
-from mongo_connector.doc_managers.utils import db_and_collection
+from mongo_connector.doc_managers.utils import db_and_collection, ARRAY_OF_SCALARS_TYPE
 
 _formatter = DocumentFlattener()
 
@@ -65,12 +65,6 @@ def get_mapped_document(mappings, document, namespace):
             mappedKey = field_mapping['dest']
             cleaned_and_flatten_document[mappedKey] = cleaned_and_flatten_document.pop(key)
 
-    for key in get_scalar_array_fields(mappings, db, collection):
-        mappedKey = mappings[db][collection][key]['dest']
-        scalar_array = get_nested_field_from_document(document, key)
-        if scalar_array is not None:
-            cleaned_and_flatten_document[mappedKey] = to_scalar_string(scalar_array)
-
     return cleaned_and_flatten_document
 
 
@@ -105,7 +99,7 @@ def get_scalar_array_fields(mappings, db, collection):
 
     return [
         k for k, v in mappings[db][collection].iteritems()
-        if 'type' in v and v['type'] == '_ARRAY_OF_SCALARS'
+        if 'type' in v and v['type'] == ARRAY_OF_SCALARS_TYPE
         ]
 
 

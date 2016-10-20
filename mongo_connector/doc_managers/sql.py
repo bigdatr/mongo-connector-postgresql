@@ -7,7 +7,8 @@ import unicodedata
 from psycopg2._psycopg import AsIs
 
 from mongo_connector.doc_managers.mappings import get_mapped_document
-from mongo_connector.doc_managers.utils import extract_creation_date, get_array_fields, db_and_collection
+from mongo_connector.doc_managers.utils import extract_creation_date, get_array_fields, db_and_collection, \
+    get_array_of_scalar_fields, ARRAY_OF_SCALARS_TYPE, ARRAY_TYPE
 
 LOG = logging.getLogger(__name__)
 
@@ -50,12 +51,19 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
     db, collection = db_and_collection(namespace)
 
     primary_key = mappings[db][collection]['pk']
-    keys = [v['dest'] for k, v in mappings[db][collection].iteritems() if 'dest' in v and v['type'] != '_ARRAY']
+    keys = [
+        v['dest'] for k, v in mappings[db][collection].iteritems()
+        if 'dest' in v and v['type'] != ARRAY_TYPE
+        and v['type'] != ARRAY_OF_SCALARS_TYPE
+        ]
     values = []
 
     for document in documents:
         mapped_document = get_mapped_document(mappings, document, namespace)
         document_values = [to_sql_value(extract_creation_date(mapped_document, mappings[db][collection]['pk']))]
+
+        if not mapped_document:
+            break
 
         for key in keys:
             if key in mapped_document:
@@ -64,17 +72,41 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
                 document_values.append(to_sql_value(None))
         values.append(u"({0})".format(u','.join(document_values)))
 
-        for arrayField in get_array_fields(mappings, db, collection, document):
-            dest = mappings[db][collection][arrayField]['dest']
-            fk = mappings[db][collection][arrayField]['fk']
-            linked_documents = document[arrayField]
-            for linked_document in linked_documents:
-                linked_document[fk] = mapped_document[primary_key]
+        insert_document_arrays(collection, cursor, db, document, mapped_document, mappings, primary_key)
+        insert_scalar_arrays(collection, cursor, db, document, mapped_document, mappings, primary_key)
 
-            sql_bulk_insert(cursor, mappings, "{0}.{1}".format(db, dest), linked_documents)
+    if values:
+        sql = u"INSERT INTO {0} ({1}) VALUES {2}".format(
+            collection,
+            u','.join(['_creationDate'] + keys),
+            u",".join(values)
+        )
+        cursor.execute(sql)
 
-    sql = u"INSERT INTO {0} ({1}) VALUES {2}".format(collection, u','.join(['_creationDate'] + keys), u",".join(values))
-    cursor.execute(sql)
+
+def insert_scalar_arrays(collection, cursor, db, document, mapped_document, mappings, primary_key):
+    for arrayField in get_array_of_scalar_fields(mappings, db, collection, document):
+        dest = mappings[db][collection][arrayField]['dest']
+        fk = mappings[db][collection][arrayField]['fk']
+        value_field = mappings[db][collection][arrayField]['valueField']
+        scalar_values = document[arrayField]
+
+        linked_documents = []
+        for value in scalar_values:
+            linked_documents.append({fk: mapped_document[primary_key], value_field: to_sql_value(value)})
+
+        sql_bulk_insert(cursor, mappings, "{0}.{1}".format(db, dest), linked_documents)
+
+
+def insert_document_arrays(collection, cursor, db, document, mapped_document, mappings, primary_key):
+    for arrayField in get_array_fields(mappings, db, collection, document):
+        dest = mappings[db][collection][arrayField]['dest']
+        fk = mappings[db][collection][arrayField]['fk']
+        linked_documents = document[arrayField]
+        for linked_document in linked_documents:
+            linked_document[fk] = mapped_document[primary_key]
+
+        sql_bulk_insert(cursor, mappings, "{0}.{1}".format(db, dest), linked_documents)
 
 
 def sql_insert(cursor, tableName, document, primary_key):
