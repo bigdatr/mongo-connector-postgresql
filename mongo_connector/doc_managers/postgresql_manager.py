@@ -16,7 +16,7 @@ from pymongo import MongoClient
 from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_document, get_primary_key, \
     get_scalar_array_fields
 from mongo_connector.doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, \
-    sql_bulk_insert, object_id_adapter, sql_delete_rows_where, to_sql_value
+    sql_bulk_insert, object_id_adapter, sql_delete_rows_where, to_sql_value, sql_drop_table
 from mongo_connector.doc_managers.utils import get_array_fields, db_and_collection, get_any_array_fields, \
     ARRAY_OF_SCALARS_TYPE, ARRAY_TYPE, get_nested_field_from_document
 
@@ -62,37 +62,42 @@ class DocManager(DocManagerBase):
                 self.insert_accumulator[collection] = 0
 
                 with self.pgsql.cursor() as cursor:
+                    pk_found = False
+                    pk_name = self.mappings[database][collection]['pk']
+                    columns = ['_creationdate TIMESTAMP']
+                    indices = [u"INDEX idx_{0}__creation_date ON {0} (_creationdate DESC)".format(collection)] + \
+                              self.mappings[database][collection].get('indices', [])
 
-                    if not sql_table_exists(cursor, collection):
-                        with self.pgsql.cursor() as cur:
-                            pk_found = False
-                            pk_name = self.mappings[database][collection]['pk']
-                            columns = ['_creationdate TIMESTAMP']
-                            indices = [u"INDEX idx_{0}__creation_date ON {0} (_creationdate DESC)".format(collection)] + \
-                                      self.mappings[database][collection].get('indices', [])
+                    for column in self.mappings[database][collection]:
+                        column_mapping = self.mappings[database][collection][column]
 
-                            for column in self.mappings[database][collection]:
-                                if 'dest' in self.mappings[database][collection][column]:
-                                    name = self.mappings[database][collection][column]['dest']
-                                    column_type = self.mappings[database][collection][column]['type']
+                        if 'dest' in column_mapping:
+                            name = column_mapping['dest']
+                            column_type = column_mapping['type']
 
-                                    constraints = ''
-                                    if name == pk_name:
-                                        constraints = "CONSTRAINT {0}_PK PRIMARY KEY".format(collection.upper())
-                                        pk_found = True
+                            constraints = ''
+                            if name == pk_name:
+                                constraints = "CONSTRAINT {0}_PK PRIMARY KEY".format(collection.upper())
+                                pk_found = True
 
-                                    if column_type != ARRAY_TYPE and column_type != ARRAY_OF_SCALARS_TYPE:
-                                        columns.append(name + ' ' + column_type + ' ' + constraints)
+                            if column_type != ARRAY_TYPE and column_type != ARRAY_OF_SCALARS_TYPE:
+                                columns.append(name + ' ' + column_type + ' ' + constraints)
 
-                            if not pk_found:
-                                columns.append(pk_name + ' SERIAL CONSTRAINT ' + collection.upper() + '_PK PRIMARY KEY')
+                            if 'index' in column_mapping:
+                                indices.append(u"INDEX idx_{0} ON {1} ({0})".format(name, collection))
 
-                            sql_create_table(cur, collection, columns)
+                    if not pk_found:
+                        columns.append(pk_name + ' SERIAL CONSTRAINT ' + collection.upper() + '_PK PRIMARY KEY')
 
-                            for index in indices:
-                                cur.execute("CREATE " + index)
+                    if sql_table_exists(cursor, collection):
+                        sql_drop_table(cursor, collection)
 
-                            self.commit()
+                    sql_create_table(cursor, collection, columns)
+
+                    for index in indices:
+                        cursor.execute("CREATE " + index)
+
+                    self.commit()
 
     def stop(self):
         pass

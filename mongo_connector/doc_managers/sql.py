@@ -39,6 +39,10 @@ def sql_delete_rows_where(cursor, table, where_clause):
     cursor.execute(u"DELETE FROM {0} WHERE {1}".format(table.lower(), where_clause))
 
 
+def sql_drop_table(cursor, tableName):
+    sql = u"DROP TABLE {0}".format(tableName.lower())
+    cursor.execute(sql)
+
 def sql_create_table(cursor, tableName, columns):
     sql = u"CREATE TABLE {0} {1}".format(tableName.lower(), to_sql_list(columns))
     cursor.execute(sql)
