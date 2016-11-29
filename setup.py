@@ -5,7 +5,7 @@ from distutils.core import setup
 
 setup(
         name='mongo-connector-postgresql',
-        version='1.1-beta10',
+        version='1.1-beta11',
         description='Doc Manager Postgresl for Mongo connector Distribution Utilities',
         keywords=['mongo-connector', 'mongo', 'mongodb', 'postgresql'],
         platforms=["any"],
