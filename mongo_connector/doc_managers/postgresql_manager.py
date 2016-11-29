@@ -84,7 +84,7 @@ class DocManager(DocManagerBase):
                                 columns.append(name + ' ' + column_type + ' ' + constraints)
 
                             if 'index' in column_mapping:
-                                indices.append(u"INDEX idx_{0} ON {1} ({0})".format(name, collection))
+                                indices.append(u"INDEX idx_{2}_{0} ON {1} ({0})".format(name, collection, collection.replace('.', '_')))
 
                     if not pk_found:
                         columns.append(pk_name + ' SERIAL CONSTRAINT ' + collection.upper() + '_PK PRIMARY KEY')
