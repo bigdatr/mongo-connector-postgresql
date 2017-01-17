@@ -29,7 +29,7 @@ Installation
 
 The easiest way to install mongo-connector and our extension is with:
 
-    pip install mongo-connector pg-mongo-connector
+    pip install mongo-connector mongo-connector-postgresql
 
 Using this connector
 ~~~~~~~~~~~~~~~~~~~~
