@@ -12,7 +12,7 @@ from mongo_connector.doc_managers.utils import extract_creation_date, get_array_
 
 LOG = logging.getLogger(__name__)
 
-all_chars = (unichr(i) for i in xrange(0x110000))
+all_chars = (unichr(i) for i in xrange(0x10000))
 control_chars = ''.join(c for c in all_chars if unicodedata.category(c) == 'Cc')
 control_char_re = re.compile('[%s]' % re.escape(control_chars))
 
