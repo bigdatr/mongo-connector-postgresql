@@ -34,7 +34,7 @@ The easiest way to install mongo-connector and our extension is with:
 Using this connector
 ~~~~~~~~~~~~~~~~~~~~
 
-Please check out the `mongo-connector documentation<https://github.com/mongodb-labs/mongo-connector/wiki>`_ beforehand
+Please check out the `mongo-connector documentation <https://github.com/mongodb-labs/mongo-connector/wiki>`_ beforehand
 since only the ``pg-mongo-connector`` specifics are written here.
 
 Just call the mongo-connector and specify this plugin with the option "-d":
@@ -45,6 +45,8 @@ The url could follow any of the syntax defined by `libpq connection string <http
 
 This connector use its own mapping file to determine the fields that should be written in postgresl and their types.
 This file should be named mappings.json. Here is a sample :
+
+.. code-block:: javascript
 
     {
     	"my_mongo_database": {
@@ -81,6 +83,8 @@ Please notice the following :
 
 The connector also support arrays of documents. Let say your Mongo database stores the following documents :
 
+.. code-block:: javascript
+
     {
     	"posts": {
     		"name": "Check out the mongo -> postgres connector",
@@ -96,6 +100,8 @@ The connector also support arrays of documents. Let say your Mongo database stor
     }
 
 To allow the connector to map the post objects AND its comments, you should use the following mapping :
+
+.. code-block:: javascript
 
     {
         "my_mongo_database": {
@@ -142,6 +148,8 @@ Please notice the following :
 
 Finaly, the connector supports arrays of scalar. Let say your Mongo database stores the following documents :
 
+.. code-block:: javascript
+
     {
     	"posts": {
     		"name": "Check out the mongo -> postgres connector",
@@ -150,6 +158,8 @@ Finaly, the connector supports arrays of scalar. Let say your Mongo database sto
     }
 
 To allow the connector to map the post objects AND its comments, you should use the following mapping :
+
+.. code-block:: javascript
 
     {
         "my_mongo_database": {
@@ -167,7 +177,7 @@ To allow the connector to map the post objects AND its comments, you should use 
         }
     }
 
-The scalar values will be packed into a string with the following separator : '--*--'
+The scalar values will be packed into a string with the following separator : '--\*--'
 
 Contribution / Limitations
 --------------------------
