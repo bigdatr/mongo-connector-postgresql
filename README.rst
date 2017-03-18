@@ -29,15 +29,19 @@ Installation
 
 The easiest way to install mongo-connector and our extension is with:
 
-    pip install mongo-connector pg-mongo-connector
+.. code-block:: bash
+
+    pip install mongo-connector mongo-connector-postgresql
 
 Using this connector
 ~~~~~~~~~~~~~~~~~~~~
 
-Please check out the `mongo-connector documentation<https://github.com/mongodb-labs/mongo-connector/wiki>`_ beforehand
+Please check out the `mongo-connector documentation <https://github.com/mongodb-labs/mongo-connector/wiki>`_ beforehand
 since only the ``pg-mongo-connector`` specifics are written here.
 
 Just call the mongo-connector and specify this plugin with the option "-d":
+
+.. code-block:: bash
 
   mongo-connector  -t postgresql://localhost -d postgresql_manager -c config.json
 
@@ -46,32 +50,34 @@ The url could follow any of the syntax defined by `libpq connection string <http
 This connector use its own mapping file to determine the fields that should be written in postgresl and their types.
 This file should be named mappings.json. Here is a sample :
 
+.. code-block:: javascript
+
     {
-    	"my_mongo_database": {
-    		"my_mongo_collection": {
-    		    "pk": "id",
-                 "indices": [
-                     "UNIQUE INDEX category_idx ON LeadMonitoring(category)",
-                     "UNIQUE INDEX conversationDate_idx ON LeadMonitoring(conversation_date)"
+        "my_mongo_database":{
+            "my_mongo_collection":{
+                "pk":"id",
+                "indices":[
+                    "UNIQUE INDEX category_idx ON LeadMonitoring(category)",
+                    "UNIQUE INDEX conversationDate_idx ON LeadMonitoring(conversation_date)"
                 ],
-    			"_id": {
-    				"dest": "id",
-    				"type": "TEXT"
-    			},
-    			"description": {
-    				"dest": "description",
-    				"type": "TEXT"
-    			},
-    			"enable": {
-    				"dest": "enabled",
-    				"type": "BOOLEAN"
-    			},
-    			"myobject.subproperty": {
-    				"dest": "subproperty",
-    				"type": "TEXT"
-    			}
-    		}
-    	}
+                "_id":{
+                    "dest":"id",
+                    "type":"TEXT"
+                },
+                "description":{
+                    "dest":"description",
+                    "type":"TEXT"
+                },
+                "enable":{
+                    "dest":"enabled",
+                    "type":"BOOLEAN"
+                },
+                "myobject.subproperty":{
+                    "dest":"subproperty",
+                    "type":"TEXT"
+                }
+            }
+        }
     }
 
 Please notice the following :
@@ -81,53 +87,60 @@ Please notice the following :
 
 The connector also support arrays of documents. Let say your Mongo database stores the following documents :
 
+.. code-block:: javascript
+
     {
-    	"posts": {
-    		"name": "Check out the mongo -> postgres connector",
-    		"content": "Inspiring blog post",
-    		"comments": [{
-    			"user": "Elon Musk",
-    			"comment": "What a revolution !"
-    		}, {
-    			"user": "Kevin P. Ryan",
-    			"comment": "Nice !"
-    		}]
-    	}
+        "posts":{
+            "name":"Check out the mongo -> postgres connector",
+            "content":"Inspiring blog post",
+            "comments":[
+                {
+                    "user":"Elon Musk",
+                    "comment":"What a revolution !"
+                },
+                {
+                    "user":"Kevin P. Ryan",
+                    "comment":"Nice !"
+                }
+            ]
+        }
     }
 
 To allow the connector to map the post objects AND its comments, you should use the following mapping :
 
+.. code-block:: javascript
+
     {
-        "my_mongo_database": {
-            "posts": {
-                "pk": "id",
-                "_id": {
-                    "dest": "id",
-                    "type": "TEXT"
+        "my_mongo_database":{
+            "posts":{
+                "pk":"id",
+                "_id":{
+                    "dest":"id",
+                    "type":"TEXT"
                 },
-                "content": {
-                    "dest": "description",
-                    "type": "TEXT"
+                "content":{
+                    "dest":"description",
+                    "type":"TEXT"
                 },
-                "comments": {
-                    "dest": "comments",
-                    "type": "_ARRAY",
-                    "fk": "post_id"
+                "comments":{
+                    "dest":"comments",
+                    "type":"_ARRAY",
+                    "fk":"post_id"
                 }
             },
-            "comments": {
-                "pk": "id",
-                 "post_id": {
-                    "dest": "post_id",
-                    "type": "TEXT"
+            "comments":{
+                "pk":"id",
+                "post_id":{
+                    "dest":"post_id",
+                    "type":"TEXT"
                 },
-                "user": {
-                    "dest": "user",
-                    "type": "TEXT"
+                "user":{
+                    "dest":"user",
+                    "type":"TEXT"
                 },
-                "comment": {
-                    "dest": "comment",
-                    "type": "TEXT"
+                "comment":{
+                    "dest":"comment",
+                    "type":"TEXT"
                 }
             }
         }
@@ -142,32 +155,40 @@ Please notice the following :
 
 Finaly, the connector supports arrays of scalar. Let say your Mongo database stores the following documents :
 
+.. code-block:: javascript
+
     {
-    	"posts": {
-    		"name": "Check out the mongo -> postgres connector",
-            "tags": ["Awesome", "Article", "Postgres"]
-    	}
+        "posts":{
+            "name":"Check out the mongo -> postgres connector",
+            "tags":[
+                "Awesome",
+                "Article",
+                "Postgres"
+            ]
+        }
     }
 
 To allow the connector to map the post objects AND its comments, you should use the following mapping :
 
+.. code-block:: javascript
+
     {
-        "my_mongo_database": {
-            "posts": {
-                "pk": "id",
-                "_id": {
-                    "dest": "id",
-                    "type": "TEXT"
+        "my_mongo_database":{
+            "posts":{
+                "pk":"id",
+                "_id":{
+                    "dest":"id",
+                    "type":"TEXT"
                 },
-                "tags": {
-                    "dest": "tags",
-                    "type": "_ARRAY_OF_SCALARS"
+                "tags":{
+                    "dest":"tags",
+                    "type":"_ARRAY_OF_SCALARS"
                 }
             }
         }
     }
 
-The scalar values will be packed into a string with the following separator : '--*--'
+The scalar values will be packed into a string with the following separator : '--\*--'
 
 Contribution / Limitations
 --------------------------

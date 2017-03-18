@@ -13,4 +13,6 @@ run-db.sh
 publish.sh
 reset.sh
 config.json
-/pg-mongo-connector.log
+pg-mongo-connector.log*
+.DS_Store
+venv
