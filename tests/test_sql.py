@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from unittest import TestCase, main
-from mock import MagicMock
+from mock import MagicMock, call
 
-from mongo_connector.doc_managers import sql
+from mongo_connector.doc_managers import sql, utils
+from bson.objectid import ObjectId
+
+from collections import OrderedDict
+from datetime import datetime
 
 
 class TestPostgreSQL(TestCase):
@@ -118,18 +122,22 @@ class TestPostgreSQL(TestCase):
                 'test': {
                     'pk': '_id',
                     'test': {
+                        'dest': 'test',
                         'type': 'TEXT'
                     },
                     'id_bar': {
+                        'dest': 'id_bar',
                         'type': 'INT'
                     }
                 },
                 'test_scalar': {
                     'pk': '_id',
                     'scalar': {
+                        'dest': 'scalar',
                         'type': 'INT'
                     },
                     'id_bar': {
+                        'dest': 'id_bar',
                         'type': 'INT'
                     }
                 }
@@ -144,8 +152,42 @@ class TestPostgreSQL(TestCase):
             'test2': [1, 2, 3]
         }
 
-        sql.sql_bulk_insert(cursor, mapping, 'foo.bar', [doc])
-        print(cursor.execute.mock_calls)
+        sql.sql_bulk_insert(cursor, mapping, 'foo.bar', [doc, {}])
+
+        cursor.execute.assert_has_calls([
+            call('INSERT INTO test (_creationDate,test,id_bar) VALUES (NULL,\'test1\',1)'),
+            call('INSERT INTO test_scalar (_creationDate,scalar,id_bar) VALUES (NULL,1,1),(NULL,2,1),(NULL,3,1)'),
+            call('INSERT INTO bar (_creationDate) VALUES (NULL)')
+        ])
+
+    def test_sql_insert(self):
+        cursor = MagicMock()
+        now = datetime.now()
+
+        # Use ordereddict to ensure correct order in generated SQL request
+        doc = OrderedDict()
+        doc['_id'] = ObjectId.from_datetime(now)
+        doc['foo'] = 'bar'
+
+        sql.sql_insert(cursor, 'footable', doc, '_id')
+
+        doc['_creationDate'] = utils.extract_creation_date(doc, '_id')
+
+        cursor.execute.assert_called_with(
+            'INSERT INTO footable  (_id,foo,_creationDate)  VALUES  (%(_id)s,%(foo)s,%(_creationDate)s)  ON CONFLICT (_id) DO UPDATE SET  (_id,foo,_creationDate)  =  (%(_id)s,%(foo)s,%(_creationDate)s) ',
+            doc
+        )
+
+        doc = {
+            'foo': 'bar'
+        }
+
+        sql.sql_insert(cursor, 'footable', doc, '_id')
+
+        cursor.execute.assert_called_with(
+            'INSERT INTO footable  (foo)  VALUES  (%(foo)s) ',
+            doc
+        )
 
 
 if __name__ == '__main__':
