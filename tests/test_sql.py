@@ -19,125 +19,125 @@ class TestPostgreSQL(TestCase):
     def test_sql_table_exists(self):
         cursor = MagicMock()
         cursor.fetchone.return_value = [1]
-        got = sql.sql_table_exists(cursor, 'foo')
+        got = sql.sql_table_exists(cursor, 'table')
 
         self.assertEqual(len(cursor.execute.call_args[0]), 1)
-        self.assertIn('foo', cursor.execute.call_args[0][0])
+        self.assertIn('table', cursor.execute.call_args[0][0])
         self.assertEqual(got, 1)
 
     def test_sql_delete_rows(self):
         cursor = MagicMock()
-        sql.sql_delete_rows(cursor, 'foo')
-        cursor.execute.assert_called_with('DELETE FROM foo')
+        sql.sql_delete_rows(cursor, 'table')
+        cursor.execute.assert_called_with('DELETE FROM table')
 
     def test_sql_delete_rows_where(self):
         cursor = MagicMock()
-        sql.sql_delete_rows_where(cursor, 'foo', 'id = 1')
-        cursor.execute.assert_called_with('DELETE FROM foo WHERE id = 1')
+        sql.sql_delete_rows_where(cursor, 'table', 'id = 1')
+        cursor.execute.assert_called_with('DELETE FROM table WHERE id = 1')
 
     def test_sql_drop_table(self):
         cursor = MagicMock()
-        sql.sql_drop_table(cursor, 'foo')
-        cursor.execute.assert_called_with('DROP TABLE foo')
+        sql.sql_drop_table(cursor, 'table')
+        cursor.execute.assert_called_with('DROP TABLE table')
 
     def test_sql_create_table(self):
         cursor = MagicMock()
         columns = [
             'id INTEGER',
-            'bar TEXT'
+            'field TEXT'
         ]
-        sql.sql_create_table(cursor, 'foo', columns)
+        sql.sql_create_table(cursor, 'table', columns)
         cursor.execute.assert_called_with(
-            'CREATE TABLE foo  (id INTEGER,bar TEXT) '
+            'CREATE TABLE table  (id INTEGER,field TEXT) '
         )
 
     def test_sql_bulk_insert(self):
         cursor = MagicMock()
 
         mapping = {
-            'foo': {
-                'bar': {
+            'db': {
+                'col': {
                     'pk': '_id',
-                    'test': {
+                    'field1': {
                         'type': 'TEXT',
-                        'dest': 'test'
+                        'dest': 'field1'
                     },
-                    'bar.baz': {
+                    'field2.subfield': {
                         'type': 'TEXT',
-                        'dest': 'bar_baz'
+                        'dest': 'field2_subfield'
                     }
                 }
             }
         }
 
-        sql.sql_bulk_insert(cursor, mapping, 'foo.bar', [])
+        sql.sql_bulk_insert(cursor, mapping, 'db.col', [])
 
         cursor.execute.assert_not_called()
 
         doc = {
             '_id': 'foo',
-            'test': 'bar'
+            'field1': 'val'
         }
 
-        sql.sql_bulk_insert(cursor, mapping, 'foo.bar', [doc])
+        sql.sql_bulk_insert(cursor, mapping, 'db.col', [doc])
         cursor.execute.assert_called_with(
-            "INSERT INTO bar (_creationDate,test,bar_baz) VALUES (NULL,'bar',NULL)"
+            "INSERT INTO col (_creationDate,field1,field2_subfield) VALUES (NULL,'val',NULL)"
         )
 
         doc = {
             '_id': 'foo',
-            'test': 'bar',
-            'bar': {
-                'baz': 'biz'
+            'field1': 'val1',
+            'field2': {
+                'subfield': 'val2'
             }
         }
 
-        sql.sql_bulk_insert(cursor, mapping, 'foo.bar', [doc])
+        sql.sql_bulk_insert(cursor, mapping, 'db.col', [doc])
         cursor.execute.assert_called_with(
-            "INSERT INTO bar (_creationDate,test,bar_baz) VALUES (NULL,'bar','biz')"
+            "INSERT INTO col (_creationDate,field1,field2_subfield) VALUES (NULL,'val1','val2')"
         )
 
     def test_sql_bulk_insert_array(self):
         cursor = MagicMock()
 
         mapping = {
-            'foo': {
-                'bar': {
+            'db': {
+                'col1': {
                     'pk': '_id',
                     '_id': {
                         'type': 'INT'
                     },
-                    'test': {
-                        'dest': 'test',
+                    'field1': {
+                        'dest': 'col_array',
                         'type': '_ARRAY',
-                        'fk': 'id_bar'
+                        'fk': 'id_col1'
                     },
-                    'test2': {
-                        'dest': 'test_scalar',
-                        'fk': 'id_bar',
+                    'field2': {
+                        'dest': 'col_scalar',
+                        'fk': 'id_col1',
                         'valueField': 'scalar',
                         'type': '_ARRAY_OF_SCALARS'
                     }
                 },
-                'test': {
+                'col_array': {
                     'pk': '_id',
-                    'test': {
-                        'dest': 'test',
+                    'field1': {
+                        'dest': 'field1',
                         'type': 'TEXT'
                     },
-                    'id_bar': {
-                        'dest': 'id_bar',
+                    'id_col1': {
+                        'dest': 'id_col1',
                         'type': 'INT'
                     }
                 },
-                'test_scalar': {
+                'col_scalar': {
                     'pk': '_id',
                     'scalar': {
                         'dest': 'scalar',
                         'type': 'INT'
                     },
-                    'id_bar': {
-                        'dest': 'id_bar',
+                    'id_col1': {
+                        'dest': 'id_col1',
                         'type': 'INT'
                     }
                 }
@@ -146,18 +146,18 @@ class TestPostgreSQL(TestCase):
 
         doc = {
             '_id': 1,
-            'test': [
-                {'test': 'test1'}
+            'field1': [
+                {'field1': 'val'}
             ],
-            'test2': [1, 2, 3]
+            'field2': [1, 2, 3]
         }
 
-        sql.sql_bulk_insert(cursor, mapping, 'foo.bar', [doc, {}])
+        sql.sql_bulk_insert(cursor, mapping, 'db.col1', [doc, {}])
 
         cursor.execute.assert_has_calls([
-            call('INSERT INTO test (_creationDate,test,id_bar) VALUES (NULL,\'test1\',1)'),
-            call('INSERT INTO test_scalar (_creationDate,scalar,id_bar) VALUES (NULL,1,1),(NULL,2,1),(NULL,3,1)'),
-            call('INSERT INTO bar (_creationDate) VALUES (NULL)')
+            call('INSERT INTO col_array (_creationDate,id_col1,field1) VALUES (NULL,1,\'val\')'),
+            call('INSERT INTO col_scalar (_creationDate,scalar,id_col1) VALUES (NULL,1,1),(NULL,2,1),(NULL,3,1)'),
+            call('INSERT INTO col1 (_creationDate) VALUES (NULL)')
         ])
 
     def test_sql_insert(self):
@@ -167,25 +167,25 @@ class TestPostgreSQL(TestCase):
         # Use ordereddict to ensure correct order in generated SQL request
         doc = OrderedDict()
         doc['_id'] = ObjectId.from_datetime(now)
-        doc['foo'] = 'bar'
+        doc['field'] = 'val'
 
-        sql.sql_insert(cursor, 'footable', doc, '_id')
+        sql.sql_insert(cursor, 'table', doc, '_id')
 
         doc['_creationDate'] = utils.extract_creation_date(doc, '_id')
 
         cursor.execute.assert_called_with(
-            'INSERT INTO footable  (_id,foo,_creationDate)  VALUES  (%(_id)s,%(foo)s,%(_creationDate)s)  ON CONFLICT (_id) DO UPDATE SET  (_id,foo,_creationDate)  =  (%(_id)s,%(foo)s,%(_creationDate)s) ',
+            'INSERT INTO table  (_id,field,_creationDate)  VALUES  (%(_id)s,%(field)s,%(_creationDate)s)  ON CONFLICT (_id) DO UPDATE SET  (_id,field,_creationDate)  =  (%(_id)s,%(field)s,%(_creationDate)s) ',
             doc
         )
 
         doc = {
-            'foo': 'bar'
+            'field': 'val'
         }
 
-        sql.sql_insert(cursor, 'footable', doc, '_id')
+        sql.sql_insert(cursor, 'table', doc, '_id')
 
         cursor.execute.assert_called_with(
-            'INSERT INTO footable  (foo)  VALUES  (%(foo)s) ',
+            'INSERT INTO table  (field)  VALUES  (%(field)s) ',
             doc
         )
 

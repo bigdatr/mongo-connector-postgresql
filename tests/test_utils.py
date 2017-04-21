@@ -35,44 +35,44 @@ class TestPostgreSQLUtils(TestCase):
 
     def test_is_collection_mapped(self):
         doc = {
-            'foo': {
-                'bar': {
-                    'baz': 'biz'
+            'db': {
+                'col': {
+                    'field': 'val'
                 }
             }
         }
 
-        got = utils.is_collection_mapped(doc, 'foo.bar.baz')
+        got = utils.is_collection_mapped(doc, 'db.col.field')
         self.assertTrue(got)
 
         doc = {
-            'foo': {
-                'bar': {}
+            'db': {
+                'col': {}
             }
         }
 
-        got = utils.is_collection_mapped(doc, 'foo.bar.baz')
+        got = utils.is_collection_mapped(doc, 'db.col.field')
         self.assertFalse(got)
 
     def test_is_field_mapped(self):
         mapping = {
-            'foo': {
-                'bar': {
-                    'baz': 'biz'
+            'db': {
+                'col': {
+                    'field': 'val'
                 }
             }
         }
 
-        got = utils.is_field_mapped(mapping, 'foo', 'bar', 'baz')
+        got = utils.is_field_mapped(mapping, 'db', 'col', 'field')
         self.assertTrue(got)
 
         mapping = {
-            'foo': {
-                'bar': {}
+            'db': {
+                'col': {}
             }
         }
 
-        got = utils.is_field_mapped(mapping, 'foo', 'bar', 'baz')
+        got = utils.is_field_mapped(mapping, 'db', 'col', 'field')
         self.assertFalse(got)
 
     def test_get_nested_field_from_document(self):
@@ -103,115 +103,115 @@ class TestPostgreSQLUtils(TestCase):
 
     def test_get_fields_of_type(self):
         mapping = {}
-        got = utils.get_fields_of_type(mapping, 'foo', 'bar', {}, 'TEXT')
+        got = utils.get_fields_of_type(mapping, 'db', 'col', {}, 'TEXT')
         self.assertEqual(got, [])
 
-        mapping = {'foo': {}}
-        got = utils.get_fields_of_type(mapping, 'foo', 'bar', {}, 'TEXT')
+        mapping = {'db': {}}
+        got = utils.get_fields_of_type(mapping, 'db', 'col', {}, 'TEXT')
         self.assertEqual(got, [])
 
         mapping = {
-            'foo': {
-                'bar': {}
+            'db': {
+                'col': {}
             }
         }
-        got = utils.get_fields_of_type(mapping, 'foo', 'bar', {}, 'TEXT')
+        got = utils.get_fields_of_type(mapping, 'db', 'col', {}, 'TEXT')
         self.assertEqual(got, [])
 
         mapping = {
-            'foo': {
-                'bar': {
-                    'test': {'test2': {}},
-                    'test.test2': {'type': 'TEXT'}
+            'db': {
+                'col': {
+                    'field1': {'field2': {}},
+                    'field1.field2': {'type': 'TEXT'}
                 }
             }
         }
-        got = utils.get_fields_of_type(mapping, 'foo', 'bar', {}, 'TEXT')
+        got = utils.get_fields_of_type(mapping, 'db', 'col', {}, 'TEXT')
         self.assertEqual(got, [])
 
-        doc = {'test': {'test2': 'test3'}}
-        got = utils.get_fields_of_type(mapping, 'foo', 'bar', doc, 'TEXT')
-        self.assertEqual(got, ['test.test2'])
+        doc = {'field1': {'field2': 'val'}}
+        got = utils.get_fields_of_type(mapping, 'db', 'col', doc, 'TEXT')
+        self.assertEqual(got, ['field1.field2'])
 
     def test_get_array_fields(self):
         mapping = {
-            'foo': {
-                'bar': {
-                    'test': {'type': '_ARRAY'}
+            'db': {
+                'col': {
+                    'field1': {'type': '_ARRAY'}
                 }
             }
         }
-        got = utils.get_array_fields(mapping, 'foo', 'bar', {})
+        got = utils.get_array_fields(mapping, 'db', 'col', {})
         self.assertEqual(got, [])
 
-        doc = {'test': [{}]}
-        got = utils.get_array_fields(mapping, 'foo', 'bar', doc)
-        self.assertEqual(got, ['test'])
+        doc = {'field1': [{}]}
+        got = utils.get_array_fields(mapping, 'db', 'col', doc)
+        self.assertEqual(got, ['field1'])
 
     def test_get_array_of_scalar_fields(self):
         mapping = {
-            'foo': {
-                'bar': {
-                    'test': {'type': '_ARRAY_OF_SCALARS'}
+            'db': {
+                'col': {
+                    'field': {'type': '_ARRAY_OF_SCALARS'}
                 }
             }
         }
-        got = utils.get_array_of_scalar_fields(mapping, 'foo', 'bar', {})
+        got = utils.get_array_of_scalar_fields(mapping, 'db', 'col', {})
         self.assertEqual(got, [])
 
-        doc = {'test': [1, 2, 3]}
-        got = utils.get_array_of_scalar_fields(mapping, 'foo', 'bar', doc)
-        self.assertEqual(got, ['test'])
+        doc = {'field': [1, 2, 3]}
+        got = utils.get_array_of_scalar_fields(mapping, 'db', 'col', doc)
+        self.assertEqual(got, ['field'])
 
     def test_get_any_array_fields(self):
         mapping = {
-            'foo': {
-                'bar': {
-                    'test': {'type': '_ARRAY'},
-                    'test2': {'type': '_ARRAY_OF_SCALARS'}
+            'db': {
+                'col': {
+                    'field1': {'type': '_ARRAY'},
+                    'field2': {'type': '_ARRAY_OF_SCALARS'}
                 }
             }
         }
-        got = utils.get_any_array_fields(mapping, 'foo', 'bar', {})
+        got = utils.get_any_array_fields(mapping, 'db', 'col', {})
         self.assertEqual(got, [])
 
-        doc = {'test': [{}]}
-        got = utils.get_any_array_fields(mapping, 'foo', 'bar', doc)
-        self.assertEqual(got, ['test'])
+        doc = {'field1': [{}]}
+        got = utils.get_any_array_fields(mapping, 'db', 'col', doc)
+        self.assertEqual(got, ['field1'])
 
-        doc = {'test2': [1, 2, 3]}
-        got = utils.get_any_array_fields(mapping, 'foo', 'bar', doc)
-        self.assertEqual(got, ['test2'])
+        doc = {'field2': [1, 2, 3]}
+        got = utils.get_any_array_fields(mapping, 'db', 'col', doc)
+        self.assertEqual(got, ['field2'])
 
         doc = {
-            'test': [{}],
-            'test2': [1, 2, 3]
+            'field1': [{}],
+            'field2': [1, 2, 3]
         }
-        got = utils.get_any_array_fields(mapping, 'foo', 'bar', doc)
-        self.assertIn('test', got)
-        self.assertIn('test2', got)
+        got = utils.get_any_array_fields(mapping, 'db', 'col', doc)
+        self.assertIn('field1', got)
+        self.assertIn('field2', got)
 
     def test_is_array_field(self):
         mapping = {
-            'foo': {
-                'bar': {
-                    'test': {
-                        'test2': {},
-                        'test3': {}
+            'db': {
+                'col': {
+                    'field': {
+                        'subfield1': {},
+                        'subfield2': {}
                     },
-                    'test.test2': {'type': '_ARRAY'},
-                    'test.test3': {'type': 'TEXT'}
+                    'field.subfield1': {'type': '_ARRAY'},
+                    'field.subfield2': {'type': 'TEXT'}
                 }
             }
         }
 
-        got = utils.is_array_field(mapping, 'foo', 'bar', 'test.test2')
+        got = utils.is_array_field(mapping, 'db', 'col', 'field.subfield1')
         self.assertTrue(got)
 
-        got = utils.is_array_field(mapping, 'foo', 'bar', 'test.test3')
+        got = utils.is_array_field(mapping, 'db', 'col', 'field.subfield2')
         self.assertFalse(got)
 
-        got = utils.is_array_field(mapping, 'foo', 'bar', 'test.test4')
+        got = utils.is_array_field(mapping, 'db', 'col', 'field.subfield3')
         self.assertFalse(got)
 
     def test_map_value_to_pgsql(self):
@@ -224,37 +224,37 @@ class TestPostgreSQLUtils(TestCase):
         self.assertTrue(isinstance(got, str))
 
     def test_db_and_collection(self):
-        ns = 'foo.bar'
+        ns = 'db.col'
         got = utils.db_and_collection(ns)
 
         self.assertEqual(len(got), 2)
-        self.assertEqual(got, ['foo', 'bar'])
+        self.assertEqual(got, ['db', 'col'])
 
     def test_get_array_field_collection(self):
         mapping = {
-            'foo': {
-                'bar': {
-                    'test': {
-                        'dest': 'test2'
+            'db': {
+                'col': {
+                    'field': {
+                        'dest': 'column'
                     }
                 }
             }
         }
-        got = utils.get_array_field_collection(mapping, 'foo', 'bar', 'test')
-        self.assertEqual(got, 'test2')
+        got = utils.get_array_field_collection(mapping, 'db', 'col', 'field')
+        self.assertEqual(got, 'column')
 
     def test_get_foreign_key(self):
         mapping = {
-            'foo': {
-                'bar': {
-                    'test': {
-                        'fk': 'test2'
+            'db': {
+                'col': {
+                    'field1': {
+                        'fk': 'field2'
                     }
                 }
             }
         }
-        got = utils.get_foreign_key(mapping, 'foo', 'bar', 'test')
-        self.assertEqual(got, 'test2')
+        got = utils.get_foreign_key(mapping, 'db', 'col', 'field1')
+        self.assertEqual(got, 'field2')
 
 
 if __name__ == '__main__':
