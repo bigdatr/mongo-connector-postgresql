@@ -6,6 +6,7 @@ import unicodedata
 
 from builtins import chr
 from future.utils import iteritems
+from past.builtins import long
 
 from psycopg2._psycopg import AsIs
 
