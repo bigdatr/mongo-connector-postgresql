@@ -4,6 +4,8 @@ import logging
 import re
 import unicodedata
 
+from builtins import chr
+
 from psycopg2._psycopg import AsIs
 
 from mongo_connector.doc_managers.mappings import get_mapped_document
@@ -12,7 +14,7 @@ from mongo_connector.doc_managers.utils import extract_creation_date, get_array_
 
 LOG = logging.getLogger(__name__)
 
-all_chars = (unichr(i) for i in range(0x10000))
+all_chars = (chr(i) for i in range(0x10000))
 control_chars = ''.join(c for c in all_chars if unicodedata.category(c) == 'Cc')
 control_char_re = re.compile('[%s]' % re.escape(control_chars))
 
