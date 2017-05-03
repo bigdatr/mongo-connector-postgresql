@@ -5,6 +5,7 @@ import re
 import unicodedata
 
 from builtins import chr
+from future.utils import iteritems
 
 from psycopg2._psycopg import AsIs
 
@@ -58,7 +59,7 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
 
     primary_key = mappings[db][collection]['pk']
     keys = [
-        v['dest'] for k, v in mappings[db][collection].iteritems()
+        v['dest'] for k, v in iteritems(mappings[db][collection])
         if 'dest' in v and v['type'] != ARRAY_TYPE
         and v['type'] != ARRAY_OF_SCALARS_TYPE
         ]
