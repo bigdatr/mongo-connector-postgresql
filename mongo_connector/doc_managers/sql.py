@@ -1,13 +1,12 @@
 # coding: utf8
 
 import logging
-import re
 import unicodedata
 
+import re
 from builtins import chr
 from future.utils import iteritems
 from past.builtins import long, basestring
-
 from psycopg2._psycopg import AsIs
 
 from mongo_connector.doc_managers.mappings import get_mapped_document
@@ -47,7 +46,9 @@ def sql_drop_table(cursor, tableName):
     sql = u"DROP TABLE {0}".format(tableName.lower())
     cursor.execute(sql)
 
+
 def sql_create_table(cursor, tableName, columns):
+    columns.sort()
     sql = u"CREATE TABLE {0} {1}".format(tableName.lower(), to_sql_list(columns))
     cursor.execute(sql)
 
@@ -64,6 +65,8 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
         if 'dest' in v and v['type'] != ARRAY_TYPE
         and v['type'] != ARRAY_OF_SCALARS_TYPE
         ]
+    keys.sort()
+
     values = []
 
     for document in documents:
@@ -118,12 +121,19 @@ def insert_document_arrays(collection, cursor, db, document, mapped_document, ma
         sql_bulk_insert(cursor, mappings, "{0}.{1}".format(db, dest), linked_documents)
 
 
+def get_document_keys(document):
+    keys = [key for key in document.keys()]
+    keys.sort()
+
+    return keys
+
+
 def sql_insert(cursor, tableName, document, primary_key):
     creationDate = extract_creation_date(document, primary_key)
     if creationDate is not None:
         document['_creationDate'] = creationDate
 
-    keys = document.keys()
+    keys = get_document_keys(document)
     valuesPlaceholder = ("%(" + column_name + ")s" for column_name in keys)
 
     if primary_key in document:
