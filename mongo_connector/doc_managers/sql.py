@@ -122,7 +122,7 @@ def insert_document_arrays(collection, cursor, db, document, mapped_document, ma
 
 
 def get_document_keys(document):
-    keys = [key for key in document.keys()]
+    keys = list(document)
     keys.sort()
 
     return keys

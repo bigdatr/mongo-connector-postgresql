@@ -52,7 +52,7 @@ def get_mapped_document(mappings, document, namespace):
     cleaned_and_flatten_document = _clean_and_flatten_doc(mappings, document, namespace)
 
     db, collection = db_and_collection(namespace)
-    keys = cleaned_and_flatten_document.keys()
+    keys = list(cleaned_and_flatten_document)
 
     for key in keys:
         field_mapping = mappings[db][collection][key]
