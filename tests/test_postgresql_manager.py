@@ -57,6 +57,12 @@ MAPPING_RAW = '''{
     }
 }'''
 
+MAPPING_RAW_BAD_SCHEMA = '''{
+    "testdb": {
+        "testcol": {}
+    }
+}'''
+
 MAPPING = {
     'db': {
         'col': {
@@ -116,6 +122,9 @@ MAPPING = {
 
 
 class TestPostgreSQLManager(TestCase):
+
+    MAPPING = MAPPING_RAW
+
     def setUp(self):
         self.psql_module_patcher = patch(
             'mongo_connector.doc_managers.postgresql_manager.psycopg2'
@@ -125,7 +134,7 @@ class TestPostgreSQLManager(TestCase):
         )
         self.builtin_open_patcher = patch(
             'mongo_connector.doc_managers.postgresql_manager.open',
-            mock_open(read_data=MAPPING_RAW),
+            mock_open(read_data=self.MAPPING),
             create=True
         )
         self.ospath_patcher = patch(
@@ -196,6 +205,15 @@ class TestManagerInitialization(TestPostgreSQLManager):
         ], any_order=True)
 
         pconn.commit.assert_called()
+
+
+class TestManagerMappingJSONValidation(TestPostgreSQLManager):
+
+    MAPPING = MAPPING_RAW_BAD_SCHEMA
+
+    def test_mapping_json_validation(self):
+        with self.assertRaises(postgresql_manager.InvalidConfiguration):
+            postgresql_manager.DocManager('url', mongoUrl='murl')
 
 
 class TestManager(TestPostgreSQLManager):
@@ -288,7 +306,6 @@ class TestManager(TestPostgreSQLManager):
 
         self.docmgr.bulk_upsert([doc1, doc2, doc3], 'db.col', now)
 
-        print(self.cursor.execute.mock_calls)
         self.cursor.execute.assert_has_calls([
             call(
                 "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,NULL,1,'subval1')"
