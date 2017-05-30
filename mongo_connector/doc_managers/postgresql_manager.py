@@ -88,6 +88,61 @@ class DocManager(DocManagerBase):
                 "Supplied mapping file is invalid: {0}".format(err)
             )
 
+        # Integrity check
+        for database in self.mappings:
+            dbmapping = self.mappings[database]
+
+            for collection in dbmapping:
+                mapping = dbmapping[collection]
+
+                if mapping['pk'] not in mapping:
+                    raise InvalidConfiguration(
+                        "Primary key {0} mapping not found in {1}.{2}".format(
+                            mapping['pk'],
+                            database,
+                            collection
+                        )
+                    )
+
+                for fieldname in mapping:
+                    if fieldname != 'pk':
+                        field = mapping[fieldname]
+                        ftype = field['type']
+
+                        if ftype in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]:
+                            dest = field['dest']
+
+                            if dest not in dbmapping:
+                                raise InvalidConfiguration(
+                                    "Collection {0} mapping not found in {1}".format(
+                                        dest,
+                                        database
+                                    )
+                                )
+
+                            elif field['fk'] not in dbmapping[dest]:
+                                raise InvalidConfiguration(
+                                    "Foreign key {0} mapping not found in {1}.{2}".format(
+                                        field['fk'],
+                                        database,
+                                        dest
+                                    )
+                                )
+
+                            else:
+                                fk = dbmapping[dest][field['fk']]
+
+                                if fk['type'] != ftype:
+                                    raise InvalidConfiguration(
+                                        "Foreign key {0}.{1}.{2} type mismatch with primary key {0}.{3}.{4}".format(
+                                            database,
+                                            dest,
+                                            field['fk'],
+                                            collection,
+                                            mapping['pk']
+                                        )
+                                    )
+
     def _init_schema(self):
         self.prepare_mappings()
 
