@@ -17,7 +17,7 @@ MAPPING_SCHEMA = {
                 "pk": {"type": "string"}
             },
             "patternProperties": {
-                "^(?!pk)$": {
+                "^(?!pk$)(.*)$": {
                     "type": "object",
                     "oneOf": [
                         {"$ref": "#/definitions/basic-field"},
@@ -141,7 +141,8 @@ MAPPING_SCHEMA = {
                 "dest": {"type": "string"},
                 "fk": {"type": "string"},
                 "valueField": {"type": "string"}
-            }
+            },
+            "required": ["type", "dest", "fk", "valueField"]
         }
     },
     "type": "object",

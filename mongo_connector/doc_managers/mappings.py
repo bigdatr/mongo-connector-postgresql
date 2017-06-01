@@ -138,18 +138,9 @@ def validate_mapping(mappings):
                     ftype = field['type']
 
                     if ftype in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]:
-                        dest = field.get('dest', None)
+                        dest = field['dest']
 
-                        if dest is None:
-                            raise InvalidConfiguration(
-                                "Missing dest in array mapping {0}.{1}.{2}".format(
-                                    database,
-                                    collection,
-                                    fieldname
-                                )
-                            )
-
-                        elif dest not in dbmapping:
+                        if dest not in dbmapping:
                             raise InvalidConfiguration(
                                 "Collection {0} mapping not found in {1}".format(
                                     dest,
