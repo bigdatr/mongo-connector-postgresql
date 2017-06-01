@@ -57,12 +57,6 @@ MAPPING_RAW = '''{
     }
 }'''
 
-MAPPING_RAW_BAD_SCHEMA = '''{
-    "testdb": {
-        "testcol": {}
-    }
-}'''
-
 MAPPING = {
     'db': {
         'col': {
@@ -122,9 +116,6 @@ MAPPING = {
 
 
 class TestPostgreSQLManager(TestCase):
-
-    MAPPING = MAPPING_RAW
-
     def setUp(self):
         self.psql_module_patcher = patch(
             'mongo_connector.doc_managers.postgresql_manager.psycopg2'
@@ -134,7 +125,7 @@ class TestPostgreSQLManager(TestCase):
         )
         self.builtin_open_patcher = patch(
             'mongo_connector.doc_managers.postgresql_manager.open',
-            mock_open(read_data=self.MAPPING),
+            mock_open(read_data=MAPPING_RAW),
             create=True
         )
         self.ospath_patcher = patch(
@@ -143,12 +134,16 @@ class TestPostgreSQLManager(TestCase):
         self.logging_patcher = patch(
             'mongo_connector.doc_managers.postgresql_manager.logging'
         )
+        self.validate_mapping_patcher = patch(
+            'mongo_connector.doc_managers.postgresql_manager.validate_mapping'
+        )
 
         self.psql_module = self.psql_module_patcher.start()
         self.mongoclient = self.mongoclient_patcher.start()
         self.builtin_open = self.builtin_open_patcher.start()
         self.ospath = self.ospath_patcher.start()
         self.logging = self.logging_patcher.start()
+        self.validate_mapping = self.validate_mapping_patcher.start()
 
     def tearDown(self):
         self.psql_module_patcher.stop()
@@ -156,6 +151,7 @@ class TestPostgreSQLManager(TestCase):
         self.builtin_open_patcher.stop()
         self.ospath_patcher.stop()
         self.logging_patcher.stop()
+        self.validate_mapping_patcher.stop()
 
 
 class TestManagerInitialization(TestPostgreSQLManager):
@@ -171,6 +167,7 @@ class TestManagerInitialization(TestPostgreSQLManager):
         self.psql_module.connect.assert_called_with('url')
         self.mongoclient.assert_called_with('murl')
         self.ospath.isfile.assert_called_with('mappings.json')
+        self.validate_mapping.assert_not_called()
 
     def test_valid_configuration(self):
         pconn = MagicMock()
@@ -185,6 +182,7 @@ class TestManagerInitialization(TestPostgreSQLManager):
         self.psql_module.connect.assert_called_with('url')
         self.mongoclient.assert_called_with('murl')
         self.ospath.isfile.assert_called_with('mappings.json')
+        self.validate_mapping.assert_called_with(MAPPING)
 
         self.assertEqual(
             docmgr.mappings,
@@ -205,15 +203,6 @@ class TestManagerInitialization(TestPostgreSQLManager):
         ], any_order=True)
 
         pconn.commit.assert_called()
-
-
-class TestManagerMappingJSONValidation(TestPostgreSQLManager):
-
-    MAPPING = MAPPING_RAW_BAD_SCHEMA
-
-    def test_mapping_json_validation(self):
-        with self.assertRaises(postgresql_manager.InvalidConfiguration):
-            postgresql_manager.DocManager('url', mongoUrl='murl')
 
 
 class TestManager(TestPostgreSQLManager):

@@ -4,7 +4,6 @@ import json
 import logging
 import os.path
 import traceback
-import jsonschema
 
 import psycopg2
 from bson.objectid import ObjectId
@@ -18,7 +17,8 @@ from mongo_connector.doc_managers.mappings import (
     is_mapped,
     get_mapped_document,
     get_primary_key,
-    get_scalar_array_fields
+    get_scalar_array_fields,
+    validate_mapping
 )
 from mongo_connector.doc_managers.sql import (
     sql_table_exists,
@@ -40,8 +40,6 @@ from mongo_connector.doc_managers.utils import (
     ARRAY_TYPE,
     get_nested_field_from_document
 )
-
-from mongo_connector.doc_managers.mapping_schema import MAPPING_SCHEMA
 
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
@@ -76,72 +74,8 @@ class DocManager(DocManagerBase):
         with open(MAPPINGS_JSON_FILE_NAME) as mappings_file:
             self.mappings = json.load(mappings_file)
 
-        self._validate_mapping()
+        validate_mapping(self.mappings)
         self._init_schema()
-
-    def _validate_mapping(self):
-        try:
-            jsonschema.validate(self.mappings, MAPPING_SCHEMA)
-
-        except jsonschema.ValidationError as err:
-            raise InvalidConfiguration(
-                "Supplied mapping file is invalid: {0}".format(err)
-            )
-
-        # Integrity check
-        for database in self.mappings:
-            dbmapping = self.mappings[database]
-
-            for collection in dbmapping:
-                mapping = dbmapping[collection]
-
-                if mapping['pk'] not in mapping:
-                    raise InvalidConfiguration(
-                        "Primary key {0} mapping not found in {1}.{2}".format(
-                            mapping['pk'],
-                            database,
-                            collection
-                        )
-                    )
-
-                for fieldname in mapping:
-                    if fieldname != 'pk':
-                        field = mapping[fieldname]
-                        ftype = field['type']
-
-                        if ftype in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]:
-                            dest = field['dest']
-
-                            if dest not in dbmapping:
-                                raise InvalidConfiguration(
-                                    "Collection {0} mapping not found in {1}".format(
-                                        dest,
-                                        database
-                                    )
-                                )
-
-                            elif field['fk'] not in dbmapping[dest]:
-                                raise InvalidConfiguration(
-                                    "Foreign key {0} mapping not found in {1}.{2}".format(
-                                        field['fk'],
-                                        database,
-                                        dest
-                                    )
-                                )
-
-                            else:
-                                fk = dbmapping[dest][field['fk']]
-
-                                if fk['type'] != ftype:
-                                    raise InvalidConfiguration(
-                                        "Foreign key {0}.{1}.{2} type mismatch with primary key {0}.{3}.{4}".format(
-                                            database,
-                                            dest,
-                                            field['fk'],
-                                            collection,
-                                            mapping['pk']
-                                        )
-                                    )
 
     def _init_schema(self):
         self.prepare_mappings()

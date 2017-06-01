@@ -18,18 +18,15 @@ MAPPING_SCHEMA = {
             },
             "patternProperties": {
                 "^(?!pk)$": {
-                    "$ref": "#/definitions/field"
+                    "type": "object",
+                    "oneOf": [
+                        {"$ref": "#/definitions/basic-field"},
+                        {"$ref": "#/definitions/array-field"},
+                        {"$ref": "#/definitions/scalar-array-field"}
+                    ]
                 }
             },
             "required": ["pk"]
-        },
-        "field": {
-            "type": "object",
-            "oneOf": [
-                {"$ref": "#/definitions/basic-field"},
-                {"$ref": "#/definitions/array-field"},
-                {"$ref": "#/definitions/scalar-array-field"}
-            ]
         },
         "basic-field": {
             "properties": {

@@ -163,6 +163,49 @@ class TestPostgreSQLMappings(TestCase):
         got = mappings.get_scalar_array_fields(mapping, 'missing_db', 'col')
         self.assertEqual(got, [])
 
+    def test_invalid_mapping_missing_pk(self):
+        mapping = {'testdb': {'testcol': {}}}
+
+        with self.assertRaises(mappings.InvalidConfiguration):
+            mappings.validate_mapping(mapping)
+
+    def test_invalid_mapping_missing_pk_field(self):
+        mapping = {'testdb': {'testcol': {'pk': '_id'}}}
+
+        with self.assertRaises(mappings.InvalidConfiguration):
+            mappings.validate_mapping(mapping)
+
+    def test_valid_mapping_pk(self):
+        mapping = {
+            'testdb': {
+                'testcol': {
+                    'pk': '_id',
+                    '_id': {
+                        'type': 'INT'
+                    }
+                }
+            }
+        }
+
+        mappings.validate_mapping(mapping)
+
+    def test_invalid_mapping_array_missing_dest(self):
+        mapping = {
+            'testdb': {
+                'testcol': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'a': {
+                        'type': '_ARRAY',
+                        'fk': 'id_testcol'
+                    }
+                }
+            }
+        }
+
+        with self.assertRaises(mappings.InvalidConfiguration):
+            mappings.validate_mapping(mapping)
+
 
 if __name__ == '__main__':
     main()

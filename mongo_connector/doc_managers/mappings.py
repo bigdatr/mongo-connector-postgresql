@@ -1,8 +1,16 @@
 # coding: utf8
 from future.utils import iteritems
-from mongo_connector.doc_managers.formatters import DocumentFlattener
+import jsonschema
 
-from mongo_connector.doc_managers.utils import db_and_collection, ARRAY_OF_SCALARS_TYPE
+from mongo_connector.doc_managers.formatters import DocumentFlattener
+from mongo_connector.doc_managers.utils import (
+    db_and_collection,
+    ARRAY_TYPE,
+    ARRAY_OF_SCALARS_TYPE
+)
+from mongo_connector.doc_managers.mapping_schema import MAPPING_SCHEMA
+from mongo_connector.errors import InvalidConfiguration
+
 
 _formatter = DocumentFlattener()
 
@@ -97,3 +105,77 @@ def get_scalar_array_fields(mappings, db, collection):
         k for k, v in iteritems(mappings[db][collection])
         if 'type' in v and v['type'] == ARRAY_OF_SCALARS_TYPE
         ]
+
+
+def validate_mapping(mappings):
+    try:
+        jsonschema.validate(mappings, MAPPING_SCHEMA)
+
+    except jsonschema.ValidationError as err:
+        raise InvalidConfiguration(
+            "Supplied mapping file is invalid: {0}".format(err)
+        )
+
+    # Integrity check
+    for database in mappings:
+        dbmapping = mappings[database]
+
+        for collection in dbmapping:
+            mapping = dbmapping[collection]
+
+            if mapping['pk'] not in mapping:
+                raise InvalidConfiguration(
+                    "Primary key {0} mapping not found in {1}.{2}".format(
+                        mapping['pk'],
+                        database,
+                        collection
+                    )
+                )
+
+            for fieldname in mapping:
+                if fieldname != 'pk':
+                    field = mapping[fieldname]
+                    ftype = field['type']
+
+                    if ftype in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]:
+                        dest = field.get('dest', None)
+
+                        if dest is None:
+                            raise InvalidConfiguration(
+                                "Missing dest in array mapping {0}.{1}.{2}".format(
+                                    database,
+                                    collection,
+                                    fieldname
+                                )
+                            )
+
+                        elif dest not in dbmapping:
+                            raise InvalidConfiguration(
+                                "Collection {0} mapping not found in {1}".format(
+                                    dest,
+                                    database
+                                )
+                            )
+
+                        elif field['fk'] not in dbmapping[dest]:
+                            raise InvalidConfiguration(
+                                "Foreign key {0} mapping not found in {1}.{2}".format(
+                                    field['fk'],
+                                    database,
+                                    dest
+                                )
+                            )
+
+                        else:
+                            fk = dbmapping[dest][field['fk']]
+
+                            if fk['type'] != ftype:
+                                raise InvalidConfiguration(
+                                    "Foreign key {0}.{1}.{2} type mismatch with primary key {0}.{3}.{4}".format(
+                                        database,
+                                        dest,
+                                        field['fk'],
+                                        collection,
+                                        mapping['pk']
+                                    )
+                                )
