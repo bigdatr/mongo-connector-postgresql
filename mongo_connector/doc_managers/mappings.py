@@ -159,8 +159,9 @@ def validate_mapping(mappings):
 
                         else:
                             fk = dbmapping[dest][field['fk']]
+                            pk = mapping[mapping['pk']]
 
-                            if fk['type'] != ftype:
+                            if fk['type'] != pk['type']:
                                 raise InvalidConfiguration(
                                     "Foreign key {0}.{1}.{2} type mismatch with primary key {0}.{3}.{4}".format(
                                         database,
