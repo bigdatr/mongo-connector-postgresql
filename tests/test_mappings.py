@@ -206,6 +206,91 @@ class TestPostgreSQLMappings(TestCase):
         with self.assertRaises(mappings.InvalidConfiguration):
             mappings.validate_mapping(mapping)
 
+    def test_invalid_mapping_array_dest_not_mapped(self):
+        mapping = {
+            'testdb': {
+                'testcol': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'a': {
+                        'type': '_ARRAY',
+                        'fk': 'id_testcol',
+                        'dest': 'testcol_a'
+                    }
+                }
+            }
+        }
+
+        with self.assertRaises(mappings.InvalidConfiguration):
+            mappings.validate_mapping(mapping)
+
+    def test_invalid_mapping_array_foreign_key_missing(self):
+        mapping = {
+            'testdb': {
+                'testcol': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'a': {
+                        'type': '_ARRAY',
+                        'fk': 'id_testcol',
+                        'dest': 'testcol_a'
+                    }
+                },
+                'testcol_a': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'}
+                }
+            }
+        }
+
+        with self.assertRaises(mappings.InvalidConfiguration):
+            mappings.validate_mapping(mapping)
+
+    def test_invalid_mapping_array_foreign_key_type_mismatch(self):
+        mapping = {
+            'testdb': {
+                'testcol': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'a': {
+                        'type': '_ARRAY',
+                        'fk': 'id_testcol',
+                        'dest': 'testcol_a'
+                    }
+                },
+                'testcol_a': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'id_testcol': {'type': 'TEXT'}
+                }
+            }
+        }
+
+        with self.assertRaises(mappings.InvalidConfiguration):
+            mappings.validate_mapping(mapping)
+
+    def test_valid_mapping_array_foreign_key(self):
+        mapping = {
+            'testdb': {
+                'testcol': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'a': {
+                        'type': '_ARRAY',
+                        'fk': 'id_testcol',
+                        'dest': 'testcol_a'
+                    }
+                },
+                'testcol_a': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'id_testcol': {'type': 'INT'}
+                }
+            }
+        }
+
+        mappings.validate_mapping(mapping)
+
 
 if __name__ == '__main__':
     main()
