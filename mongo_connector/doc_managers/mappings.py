@@ -171,3 +171,16 @@ def validate_mapping(mappings):
                                         mapping['pk']
                                     )
                                 )
+
+                        if ftype == ARRAY_OF_SCALARS_TYPE:
+                            valuefield = field['valueField']
+
+                            if valuefield not in dbmapping[dest]:
+                                raise InvalidConfiguration(
+                                    'Value field {0}.{1}.{2} not mapped in {0}.{3}'.format(
+                                        database,
+                                        collection,
+                                        valuefield,
+                                        dest
+                                    )
+                                )
