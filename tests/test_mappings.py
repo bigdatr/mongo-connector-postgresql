@@ -189,6 +189,29 @@ class TestPostgreSQLMappings(TestCase):
 
         mappings.validate_mapping(mapping)
 
+    def test_valid_mapping_pk_auto_generated(self):
+        mapping = {
+            'testdb': {
+                'testcol': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'a': {
+                        'type': '_ARRAY',
+                        'dest': 'col_array',
+                        'fk': 'id_testcol'
+                    }
+                },
+                'col_array': {
+                    'pk': 'id',
+                    'id_testcol': {
+                        'type': 'INT'
+                    }
+                }
+            }
+        }
+
+        mappings.validate_mapping(mapping)
+
     def test_invalid_mapping_array_missing_dest(self):
         mapping = {
             'testdb': {

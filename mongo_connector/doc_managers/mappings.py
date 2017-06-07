@@ -117,6 +117,8 @@ def validate_mapping(mappings):
         )
 
     # Integrity check
+    ARRAYS_TYPE = [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]
+
     for database in mappings:
         dbmapping = mappings[database]
 
@@ -124,22 +126,40 @@ def validate_mapping(mappings):
             mapping = dbmapping[collection]
 
             if mapping['pk'] not in mapping:
-                raise InvalidConfiguration(
-                    "Primary key {0} mapping not found in {1}.{2}".format(
-                        mapping['pk'],
-                        database,
-                        collection
+                # look for a linked table
+                for linked_collection in dbmapping:
+                    if linked_collection != collection:
+                        linked_mapping = dbmapping[linked_collection]
+                        links = [
+                            True
+                            for field in linked_mapping
+                            if field != 'pk'
+                            and linked_mapping[field]['type'] in ARRAYS_TYPE
+                            and linked_mapping[field]['dest'] == collection
+                        ]
+
+                        if len(links) > 0:
+                            break
+
+                else:
+                    # No linked table found, cannot generate primary key
+                    raise InvalidConfiguration(
+                        "Primary key {0} mapping not found in {1}.{2}".format(
+                            mapping['pk'],
+                            database,
+                            collection
+                        )
                     )
-                )
 
             for fieldname in mapping:
                 if fieldname != 'pk':
                     field = mapping[fieldname]
                     ftype = field['type']
 
-                    if ftype in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]:
+                    if ftype in ARRAYS_TYPE:
                         dest = field['dest']
 
+                        # Check for linked table presence
                         if dest not in dbmapping:
                             raise InvalidConfiguration(
                                 "Collection {0} mapping not found in {1}".format(
@@ -148,6 +168,7 @@ def validate_mapping(mappings):
                                 )
                             )
 
+                        # Check for foreign key presence in linked table
                         elif field['fk'] not in dbmapping[dest]:
                             raise InvalidConfiguration(
                                 "Foreign key {0} mapping not found in {1}.{2}".format(
@@ -161,6 +182,7 @@ def validate_mapping(mappings):
                             fk = dbmapping[dest][field['fk']]
                             pk = mapping[mapping['pk']]
 
+                            # Check for foreign key and linked table's primary key types
                             if fk['type'] != pk['type']:
                                 raise InvalidConfiguration(
                                     "Foreign key {0}.{1}.{2} type mismatch with primary key {0}.{3}.{4}".format(
@@ -172,6 +194,7 @@ def validate_mapping(mappings):
                                     )
                                 )
 
+                        # Check for value field presence in linked table
                         if ftype == ARRAY_OF_SCALARS_TYPE:
                             valuefield = field['valueField']
 
