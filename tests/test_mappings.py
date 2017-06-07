@@ -314,7 +314,7 @@ class TestPostgreSQLMappings(TestCase):
 
         mappings.validate_mapping(mapping)
 
-    def test_valid_mapping_array_nested(self):
+    def test_invalid_mapping_array_nested(self):
         mapping = {
             'testdb': {
                 'testcol': {
