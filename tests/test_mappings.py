@@ -314,6 +314,67 @@ class TestPostgreSQLMappings(TestCase):
 
         mappings.validate_mapping(mapping)
 
+    def test_valid_mapping_array_nested(self):
+        mapping = {
+            'testdb': {
+                'testcol': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'a': {
+                        'type': '_ARRAY',
+                        'fk': 'id_testcol',
+                        'dest': 'testcol_a'
+                    }
+                },
+                'testcol_a': {
+                    'pk': '_id',
+                    'id_testcol': {'type': 'INT'},
+                    'b': {
+                        'type': '_ARRAY',
+                        'fk': 'id_testcol_a',
+                        'dest': 'testcol_b'
+                    }
+                },
+                'testcol_b': {
+                    'pk': '_id',
+                    'id_testcol_a': {'type': 'INT'},
+                }
+            }
+        }
+
+        with self.assertRaises(mappings.InvalidConfiguration):
+            mappings.validate_mapping(mapping)
+
+    def test_valid_mapping_array_nested(self):
+        mapping = {
+            'testdb': {
+                'testcol': {
+                    'pk': '_id',
+                    '_id': {'type': 'INT'},
+                    'a': {
+                        'type': '_ARRAY',
+                        'fk': 'id_testcol',
+                        'dest': 'testcol_a'
+                    }
+                },
+                'testcol_a': {
+                    'pk': '_id',
+                    'id_testcol': {'type': 'INT'},
+                    'b': {
+                        'type': '_ARRAY',
+                        'fk': 'id_testcol_a',
+                        'dest': 'testcol_b'
+                    }
+                },
+                'testcol_b': {
+                    'pk': '_id',
+                    'id_testcol_a': {'type': 'SERIAL'},
+                }
+            }
+        }
+
+        mappings.validate_mapping(mapping)
+
     def test_invalid_mapping_array_of_scalar_missing_dest(self):
         mapping = {
             'testdb': {

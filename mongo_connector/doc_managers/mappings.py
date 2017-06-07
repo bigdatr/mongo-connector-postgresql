@@ -180,7 +180,7 @@ def validate_mapping(mappings):
 
                         else:
                             fk = dbmapping[dest][field['fk']]
-                            pk = mapping[mapping['pk']]
+                            pk = mapping.get(mapping['pk'], {'type': 'SERIAL'})
 
                             # Check for foreign key and linked table's primary key types
                             if fk['type'] != pk['type']:
