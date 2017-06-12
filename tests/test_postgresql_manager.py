@@ -189,8 +189,9 @@ class TestManagerInitialization(TestPostgreSQLManager):
             MAPPING
         )
 
+        pconn.set_session.assert_called_with(deferrable=True)
         cursor.execute.assert_has_calls([
-            call('DROP TABLE col'),
+            call('DROP TABLE IF EXISTS col CASCADE'),
             call(
                 'CREATE TABLE col  (_creationdate TIMESTAMP,_id INT CONSTRAINT COL_PK PRIMARY KEY,field1 TEXT ) '
             ),
@@ -199,6 +200,9 @@ class TestManagerInitialization(TestPostgreSQLManager):
             ),
             call(
                 'CREATE INDEX idx_col__creation_date ON col (_creationdate DESC)'
+            ),
+            call(
+                'ALTER TABLE col_field2 ADD CONSTRAINT col_field2_id_col_fk FOREIGN KEY (id_col) REFERENCES col(_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED'
             )
         ], any_order=True)
 
@@ -297,19 +301,22 @@ class TestManager(TestPostgreSQLManager):
 
         self.cursor.execute.assert_has_calls([
             call(
-                "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,NULL,1,'subval1')"
+                "INSERT INTO col (_creationDate,_id,field1) VALUES (NULL,1,'val1') RETURNING _id AS col__id"
             ),
             call(
-                "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,NULL,2,'subval2')"
+                "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,DEFAULT,1,'subval1') RETURNING _id AS col_field2__id"
             ),
             call(
-                "INSERT INTO col (_creationDate,_id,field1) VALUES (NULL,1,'val1'),(NULL,2,'val2')"
+                "INSERT INTO col (_creationDate,_id,field1) VALUES (NULL,2,'val2') RETURNING _id AS col__id"
             ),
             call(
-                "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,NULL,3,'subval3')"
+                "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,DEFAULT,2,'subval2') RETURNING _id AS col_field2__id"
             ),
             call(
-                "INSERT INTO col (_creationDate,_id,field1) VALUES (NULL,3,'val3')"
+                "INSERT INTO col (_creationDate,_id,field1) VALUES (NULL,3,'val3') RETURNING _id AS col__id"
+            ),
+            call(
+                "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,DEFAULT,3,'subval3') RETURNING _id AS col_field2__id"
             )
         ], any_order=True)
         self.pconn.commit.assert_called()

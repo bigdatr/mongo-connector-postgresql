@@ -3,8 +3,14 @@
 from bson.objectid import ObjectId
 from future.utils import iteritems
 
+
 ARRAY_TYPE = u'_ARRAY'
 ARRAY_OF_SCALARS_TYPE = u'_ARRAY_OF_SCALARS'
+
+
+class Atom(str):
+    def __str__(self):
+        return self
 
 
 def extract_creation_date(document, primary_key):
@@ -14,7 +20,7 @@ def extract_creation_date(document, primary_key):
         if ObjectId.is_valid(objectId):
             return ObjectId(objectId).generation_time
 
-    return None
+    return Atom('NULL::timestamp')
 
 
 def is_collection_mapped(d, keys):
@@ -87,3 +93,31 @@ def get_nested_field_from_document(document, dot_notation_key):
         return None
 
     return get_nested_field_from_document(document[partial_key], '.'.join(dot_notation_key.split('.')[1:]))
+
+
+def flatten_query_tree(query, i=0):
+    if not query:
+        return []
+
+    result = []
+
+    for subquery in query:
+        subquery['idx'] = i
+
+        for child in subquery['queries']:
+            child['parent'] = subquery['idx']
+
+        local_result = flatten_query_tree(subquery['queries'], i + 1)
+
+        result.append(subquery)
+        result += local_result
+        i += len(local_result) + 1
+
+
+    for subquery in result:
+        subquery['last'] = False
+
+    if len(result):
+        result[-1]['last'] = True
+
+    return result

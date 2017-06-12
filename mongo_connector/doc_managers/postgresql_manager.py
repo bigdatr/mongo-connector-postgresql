@@ -23,13 +23,13 @@ from mongo_connector.doc_managers.mappings import (
 from mongo_connector.doc_managers.sql import (
     sql_table_exists,
     sql_create_table,
-    sql_insert,
     sql_delete_rows,
     sql_bulk_insert,
     object_id_adapter,
     sql_delete_rows_where,
     to_sql_value,
-    sql_drop_table
+    sql_drop_table,
+    sql_add_foreign_keys
 )
 
 from mongo_connector.doc_managers.utils import (
@@ -75,16 +75,19 @@ class DocManager(DocManagerBase):
             self.mappings = json.load(mappings_file)
 
         validate_mapping(self.mappings)
+        self.pgsql.set_session(deferrable=True)
         self._init_schema()
 
     def _init_schema(self):
         self.prepare_mappings()
 
         for database in self.mappings:
-            for collection in self.mappings[database]:
-                self.insert_accumulator[collection] = 0
+            foreign_keys = []
 
-                with self.pgsql.cursor() as cursor:
+            with self.pgsql.cursor() as cursor:
+                for collection in self.mappings[database]:
+                    self.insert_accumulator[collection] = 0
+
                     pk_found = False
                     pk_name = self.mappings[database][collection]['pk']
                     columns = ['_creationdate TIMESTAMP']
@@ -109,6 +112,14 @@ class DocManager(DocManagerBase):
                             if 'index' in column_mapping:
                                 indices.append(u"INDEX idx_{2}_{0} ON {1} ({0})".format(name, collection, collection.replace('.', '_')))
 
+                        if 'fk' in column_mapping:
+                            foreign_keys.append({
+                                'table': column_mapping['dest'],
+                                'ref': collection,
+                                'fk': column_mapping['fk'],
+                                'pk': pk_name
+                            })
+
                     if not pk_found:
                         columns.append(pk_name + ' SERIAL CONSTRAINT ' + collection.upper() + '_PK PRIMARY KEY')
 
@@ -120,7 +131,8 @@ class DocManager(DocManagerBase):
                     for index in indices:
                         cursor.execute("CREATE " + index)
 
-                    self.commit()
+                sql_add_foreign_keys(cursor, foreign_keys)
+                self.commit()
 
     def stop(self):
         pass
@@ -138,38 +150,15 @@ class DocManager(DocManagerBase):
 
     def _upsert(self, namespace, document, cursor, timestamp):
         db, collection = db_and_collection(namespace)
+        primary_key = self.mappings[db][collection]['pk']
 
-        mapped_document = get_mapped_document(self.mappings, document, namespace)
+        sql_delete_rows_where(cursor, collection, '{0} = {1}'.format(
+            primary_key,
+            to_sql_value(document[primary_key])
+        ))
 
-        if mapped_document:
-            sql_insert(cursor, collection, mapped_document, self.mappings[db][collection]['pk'])
-
-            self._upsert_array_fields(collection, cursor, db, document, mapped_document, namespace, timestamp)
-            self.upsert_scalar_array_fields(collection, cursor, db, document, mapped_document, namespace, timestamp)
-
-    def upsert_scalar_array_fields(self, collection, cursor, db, document, mapped_document, namespace, timestamp):
-        for scalarArrayField in get_scalar_array_fields(self.mappings, db, collection):
-            dest = self.mappings[db][collection][scalarArrayField]['dest']
-            fk = self.mappings[db][collection][scalarArrayField]['fk']
-            value_field = self.mappings[db][collection][scalarArrayField]['valueField']
-            dest_namespace = u"{0}.{1}".format(db, dest)
-
-            values = get_nested_field_from_document(document, scalarArrayField)
-
-            if values is not None and isinstance(values, list):
-                for value in values:
-                    updated_item = {fk: mapped_document[get_primary_key(self.mappings, namespace)], value_field: value}
-                    self._upsert(dest_namespace, updated_item, cursor, timestamp)
-
-    def _upsert_array_fields(self, collection, cursor, db, document, mapped_document, namespace, timestamp):
-        for arrayField in get_array_fields(self.mappings, db, collection, document):
-            dest = self.mappings[db][collection][arrayField]['dest']
-            fk = self.mappings[db][collection][arrayField]['fk']
-            dest_namespace = u"{0}.{1}".format(db, dest)
-
-            for arrayItem in document[arrayField]:
-                arrayItem[fk] = mapped_document[get_primary_key(self.mappings, namespace)]
-                self._upsert(dest_namespace, arrayItem, cursor, timestamp)
+        sql_bulk_insert(cursor, self.mappings, namespace, [document])
+        self.commit()
 
     def get_linked_tables(self, database, collection):
         linked_tables = []

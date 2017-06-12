@@ -38,7 +38,7 @@ class TestPostgreSQL(TestCase):
     def test_sql_drop_table(self):
         cursor = MagicMock()
         sql.sql_drop_table(cursor, 'table')
-        cursor.execute.assert_called_with('DROP TABLE table')
+        cursor.execute.assert_called_with('DROP TABLE IF EXISTS table CASCADE')
 
     def test_sql_create_table(self):
         cursor = MagicMock()
@@ -49,6 +49,22 @@ class TestPostgreSQL(TestCase):
         sql.sql_create_table(cursor, 'table', columns)
         cursor.execute.assert_called_with(
             'CREATE TABLE table  (field TEXT,id INTEGER) '
+        )
+
+    def test_sql_add_foreign_keys(self):
+        cursor = MagicMock()
+        foreign_keys = [
+            {
+                'table': 'table',
+                'fk': 'reftable_id',
+                'ref': 'reftable',
+                'pk': 'id'
+            }
+        ]
+
+        sql.sql_add_foreign_keys(cursor, foreign_keys)
+        cursor.execute.assert_called_with(
+            'ALTER TABLE table ADD CONSTRAINT table_reftable_id_fk FOREIGN KEY (reftable_id) REFERENCES reftable(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED'
         )
 
     def test_sql_bulk_insert(self):
@@ -81,7 +97,7 @@ class TestPostgreSQL(TestCase):
 
         sql.sql_bulk_insert(cursor, mapping, 'db.col', [doc])
         cursor.execute.assert_called_with(
-            "INSERT INTO col (_creationDate,field1,field2_subfield) VALUES (NULL,'val',NULL)"
+            "INSERT INTO col (_creationDate,_id,field1,field2_subfield) VALUES (NULL,DEFAULT,'val',NULL) RETURNING _id AS col__id"
         )
 
         doc = {
@@ -94,7 +110,7 @@ class TestPostgreSQL(TestCase):
 
         sql.sql_bulk_insert(cursor, mapping, 'db.col', [doc])
         cursor.execute.assert_called_with(
-            "INSERT INTO col (_creationDate,field1,field2_subfield) VALUES (NULL,'val1','val2')"
+            "INSERT INTO col (_creationDate,_id,field1,field2_subfield) VALUES (NULL,DEFAULT,'val1','val2') RETURNING _id AS col__id"
         )
 
     def test_sql_bulk_insert_array(self):
@@ -155,9 +171,11 @@ class TestPostgreSQL(TestCase):
         sql.sql_bulk_insert(cursor, mapping, 'db.col1', [doc, {}])
 
         cursor.execute.assert_has_calls([
-            call('INSERT INTO col_array (_creationDate,field1,id_col1) VALUES (NULL,\'val\',1)'),
-            call('INSERT INTO col_scalar (_creationDate,id_col1,scalar) VALUES (NULL,1,1),(NULL,1,2),(NULL,1,3)'),
-            call('INSERT INTO col1 (_creationDate) VALUES (NULL)')
+            call('INSERT INTO col_array (_creationDate,_id,field1,id_col1) VALUES (NULL,DEFAULT,\'val\',1) RETURNING _id AS col_array__id'),
+            call('INSERT INTO col_scalar (_creationDate,_id,id_col1,scalar) VALUES (NULL,DEFAULT,1,1) RETURNING _id AS col_scalar__id'),
+            call('INSERT INTO col_scalar (_creationDate,_id,id_col1,scalar) VALUES (NULL,DEFAULT,1,2) RETURNING _id AS col_scalar__id'),
+            call('INSERT INTO col_scalar (_creationDate,_id,id_col1,scalar) VALUES (NULL,DEFAULT,1,3) RETURNING _id AS col_scalar__id'),
+            call('INSERT INTO col1 (_creationDate,_id) VALUES (NULL,DEFAULT) RETURNING _id AS col1__id')
         ])
 
     def test_sql_insert(self):
