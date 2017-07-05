@@ -31,7 +31,7 @@ class TestPostgreSQLUtils(TestCase):
         self.assertEqual(expected, got)
 
         got = utils.extract_creation_date({}, '_id')
-        self.assertIsNone(got)
+        self.assertEqual(got, 'NULL::timestamp')
 
     def test_is_collection_mapped(self):
         doc = {
