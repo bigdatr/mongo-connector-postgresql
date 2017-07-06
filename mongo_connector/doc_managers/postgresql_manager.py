@@ -1,7 +1,6 @@
 # coding: utf8
 
 import json
-import logging
 import os.path
 import traceback
 
@@ -38,13 +37,12 @@ from mongo_connector.doc_managers.utils import (
     get_any_array_fields,
     ARRAY_OF_SCALARS_TYPE,
     ARRAY_TYPE,
-    get_nested_field_from_document
+    get_nested_field_from_document,
+    LOG
 )
 
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
-
-LOG = logging.getLogger(__name__)
 
 
 class DocManager(DocManagerBase):

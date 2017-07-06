@@ -2,8 +2,10 @@
 
 from bson.objectid import ObjectId
 from future.utils import iteritems
+import logging
 
 
+LOG = logging.getLogger(__name__)
 ARRAY_TYPE = u'_ARRAY'
 ARRAY_OF_SCALARS_TYPE = u'_ARRAY_OF_SCALARS'
 

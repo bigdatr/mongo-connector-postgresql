@@ -1,6 +1,5 @@
 # coding: utf8
 
-import logging
 import unicodedata
 
 import re
@@ -8,6 +7,8 @@ from builtins import chr
 from future.utils import iteritems
 from past.builtins import long, basestring
 from psycopg2._psycopg import AsIs
+import psycopg2
+
 
 from mongo_connector.doc_managers.mappings import get_mapped_document
 from mongo_connector.doc_managers.utils import (
@@ -19,11 +20,10 @@ from mongo_connector.doc_managers.utils import (
     flatten_query_tree,
     Atom,
     ARRAY_OF_SCALARS_TYPE,
-    ARRAY_TYPE
+    ARRAY_TYPE,
+    LOG
 )
 
-
-LOG = logging.getLogger(__name__)
 
 all_chars = (chr(i) for i in range(0x10000))
 control_chars = ''.join(c for c in all_chars if unicodedata.category(c) == 'Cc')
@@ -81,99 +81,112 @@ def sql_add_foreign_keys(cursor, foreign_keys):
         cursor.execute(cmd)
 
 
-def sql_bulk_insert(cursor, mappings, namespace, documents):
-    query = []
-    _sql_bulk_insert(query, mappings, namespace, documents)
-    query = flatten_query_tree(query)
+def sql_bulk_insert(cursor, mappings, namespace, documents, quiet=False):
+    queries = []
+    _sql_bulk_insert(queries, mappings, namespace, documents)
 
-    with_stmts = []
-    final_stmt = ''
+    for querytree in queries:
+        query = flatten_query_tree([querytree])
 
-    for subquery in query:
-        keyvals = dict(zip(subquery['keys'], subquery['values']))
-        foreign_keys = {}
-        values = {}
+        with_stmts = []
+        final_stmt = ''
 
-        for key in keyvals:
-            val = keyvals[key]
+        for subquery in query:
+            keyvals = dict(zip(subquery['keys'], subquery['values']))
+            foreign_keys = {}
+            values = {}
 
-            if isinstance(val, ForeignKey):
-                foreign_keys[key] = val.split('.')[1]
+            for key in keyvals:
+                val = keyvals[key]
+
+                if isinstance(val, ForeignKey):
+                    foreign_keys[key] = val.split('.')[1]
+
+                else:
+                    values[key] = val
+
+            data_alias = '{0}_data_{1}'.format(
+                subquery['collection'],
+                subquery['idx']
+            )
+            rows_alias = '{0}_rows_{1}'.format(
+                subquery['collection'],
+                subquery['idx']
+            )
+            subquery['alias'] = {
+                'data': data_alias,
+                'rows': rows_alias
+            }
+
+            with_stmts.append(
+                '{alias} ({columns}) AS (VALUES ({values}))'.format(
+                    alias=data_alias,
+                    columns=','.join(values.keys()),
+                    values=','.join(values.values())
+                )
+            )
+
+            keys = ','.join(list(values.keys()) + list(foreign_keys.keys()))
+            projection = [
+                '{0}.{1} AS {1}'.format(data_alias, key)
+                for key in values.keys()
+            ]
+            aliases = [data_alias]
+
+            if 'parent' in subquery:
+                psubquery = query[subquery['parent']]
+                parent_rows_alias = psubquery['alias']['rows']
+
+                projection += [
+                    '{0}.{1} AS {2}'.format(
+                        parent_rows_alias,
+                        foreign_keys[key],
+                        key
+                    )
+                    for key in foreign_keys
+                ]
+                aliases.append(parent_rows_alias)
+
+            projection = ','.join(projection)
+            aliases = ','.join(aliases)
+
+            if not subquery['last']:
+                with_stmts.append(
+                    '{alias} AS (INSERT INTO {table} ({columns}) SELECT {projection} FROM {aliases} RETURNING {pk})'.format(
+                        alias=rows_alias,
+                        table=subquery['collection'],
+                        columns=keys,
+                        projection=projection,
+                        aliases=aliases,
+                        pk=subquery['pk']
+                    )
+                )
 
             else:
-                values[key] = val
-
-        data_alias = '{0}_data_{1}'.format(
-            subquery['collection'],
-            subquery['idx']
-        )
-        rows_alias = '{0}_rows_{1}'.format(
-            subquery['collection'],
-            subquery['idx']
-        )
-        subquery['alias'] = {
-            'data': data_alias,
-            'rows': rows_alias
-        }
-
-        with_stmts.append(
-            '{alias} ({columns}) AS (VALUES ({values}))'.format(
-                alias=data_alias,
-                columns=','.join(values.keys()),
-                values=','.join(values.values())
-            )
-        )
-
-        keys = ','.join(list(values.keys()) + list(foreign_keys.keys()))
-        projection = [
-            '{0}.{1} AS {1}'.format(data_alias, key)
-            for key in values.keys()
-        ]
-        aliases = [data_alias]
-
-        if 'parent' in subquery:
-            psubquery = query[subquery['parent']]
-            parent_rows_alias = psubquery['alias']['rows']
-
-            projection += [
-                '{0}.{1} AS {2}'.format(
-                    parent_rows_alias,
-                    foreign_keys[key],
-                    key
-                )
-                for key in foreign_keys
-            ]
-            aliases.append(parent_rows_alias)
-
-        projection = ','.join(projection)
-        aliases = ','.join(aliases)
-
-        if not subquery['last']:
-            with_stmts.append(
-                '{alias} AS (INSERT INTO {table} ({columns}) SELECT {projection} FROM {aliases} RETURNING {pk})'.format(
-                    alias=rows_alias,
+                final_stmt = 'INSERT INTO {table} ({columns}) SELECT {projection} FROM {aliases}'.format(
                     table=subquery['collection'],
                     columns=keys,
                     projection=projection,
-                    aliases=aliases,
-                    pk=subquery['pk']
+                    aliases=aliases
                 )
+
+        sql = 'WITH {0} {1}'.format(
+            ','.join(with_stmts),
+            final_stmt
+        )
+
+        try:
+            cursor.execute(sql)
+
+        except psycopg2.Error:
+            LOG.error(
+                u"Impossible to upsert document %s in namespace %s",
+                querytree['document']['mapped'][querytree['pk']],
+                querytree['collection']
             )
 
-        else:
-            final_stmt = 'INSERT INTO {table} ({columns}) SELECT {projection} FROM {aliases}'.format(
-                table=subquery['collection'],
-                columns=keys,
-                projection=projection,
-                aliases=aliases
-            )
-
-    sql = 'WITH {0} {1}'.format(
-        ','.join(with_stmts),
-        final_stmt
-    )
-    cursor.execute(sql)
-
+            if not quiet:
+                LOG.error(u"Traceback:\n%s", traceback.format_exc())
 
 def _sql_bulk_insert(query, mappings, namespace, documents):
     if not documents:
@@ -204,6 +217,10 @@ def _sql_bulk_insert(query, mappings, namespace, documents):
 
         subquery = {
             'collection': collection,
+            'document': {
+                'raw': document,
+                'mapped': mapped_document
+            },
             'keys': ['_creationDate'] + keys,
             'values': values,
             'pk': primary_key,
