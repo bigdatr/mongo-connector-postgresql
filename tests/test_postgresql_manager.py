@@ -131,9 +131,6 @@ class TestPostgreSQLManager(TestCase):
         self.ospath_patcher = patch(
             'mongo_connector.doc_managers.postgresql_manager.os.path'
         )
-        self.logging_patcher = patch(
-            'mongo_connector.doc_managers.postgresql_manager.logging'
-        )
         self.validate_mapping_patcher = patch(
             'mongo_connector.doc_managers.postgresql_manager.validate_mapping'
         )
@@ -142,7 +139,6 @@ class TestPostgreSQLManager(TestCase):
         self.mongoclient = self.mongoclient_patcher.start()
         self.builtin_open = self.builtin_open_patcher.start()
         self.ospath = self.ospath_patcher.start()
-        self.logging = self.logging_patcher.start()
         self.validate_mapping = self.validate_mapping_patcher.start()
 
     def tearDown(self):
@@ -150,7 +146,6 @@ class TestPostgreSQLManager(TestCase):
         self.mongoclient_patcher.stop()
         self.builtin_open_patcher.stop()
         self.ospath_patcher.stop()
-        self.logging_patcher.stop()
         self.validate_mapping_patcher.stop()
 
 

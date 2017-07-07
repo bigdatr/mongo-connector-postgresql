@@ -155,7 +155,12 @@ class DocManager(DocManagerBase):
             to_sql_value(document[primary_key])
         ))
 
-        sql_bulk_insert(cursor, self.mappings, namespace, [document])
+        sql_bulk_insert(
+            cursor,
+            self.mappings,
+            namespace,
+            [document]
+        )
         self.commit()
 
     def get_linked_tables(self, database, collection):
@@ -196,14 +201,24 @@ class DocManager(DocManagerBase):
                 insert_accumulator += 1
 
                 if insert_accumulator % self.chunk_size == 0:
-                    sql_bulk_insert(cursor, self.mappings, namespace, document_buffer)
+                    sql_bulk_insert(
+                        cursor,
+                        self.mappings,
+                        namespace,
+                        document_buffer
+                    )
 
                     self.commit()
                     document_buffer = []
 
                     LOG.info('%s %s copied...', insert_accumulator, namespace)
 
-            sql_bulk_insert(cursor, self.mappings, namespace, document_buffer)
+            sql_bulk_insert(
+                cursor,
+                self.mappings,
+                namespace,
+                document_buffer
+            )
             self.commit()
 
     def update(self, document_id, update_spec, namespace, timestamp):

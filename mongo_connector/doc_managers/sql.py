@@ -18,7 +18,6 @@ from mongo_connector.doc_managers.utils import (
     get_array_of_scalar_fields,
     get_nested_field_from_document,
     flatten_query_tree,
-    Atom,
     ARRAY_OF_SCALARS_TYPE,
     ARRAY_TYPE,
     LOG
@@ -30,8 +29,9 @@ control_chars = ''.join(c for c in all_chars if unicodedata.category(c) == 'Cc')
 control_char_re = re.compile('[%s]' % re.escape(control_chars))
 
 
-class ForeignKey(Atom):
-    pass
+class ForeignKey(str):
+    def __str__(self):
+        return self
 
 
 def to_sql_list(items):
@@ -81,7 +81,7 @@ def sql_add_foreign_keys(cursor, foreign_keys):
         cursor.execute(cmd)
 
 
-def sql_bulk_insert(cursor, mappings, namespace, documents, quiet=False):
+def sql_bulk_insert(cursor, mappings, namespace, documents):
     queries = []
     _sql_bulk_insert(queries, mappings, namespace, documents)
 
@@ -178,15 +178,17 @@ def sql_bulk_insert(cursor, mappings, namespace, documents, quiet=False):
         try:
             cursor.execute(sql)
 
-        except psycopg2.Error:
+        except psycopg2.Error as e:
             LOG.error(
-                u"Impossible to upsert document %s in namespace %s",
+                u"Impossible to upsert document %s in namespace %s: %s\n%s",
                 querytree['document']['mapped'][querytree['pk']],
-                querytree['collection']
+                querytree['collection'],
+                e,
+                sql
             )
 
-            if not quiet:
-                LOG.error(u"Traceback:\n%s", traceback.format_exc())
+            LOG.error(u"Traceback:\n%s", traceback.format_exc())
+
 
 def _sql_bulk_insert(query, mappings, namespace, documents):
     if not documents:
@@ -196,24 +198,39 @@ def _sql_bulk_insert(query, mappings, namespace, documents):
 
     primary_key = mappings[db][collection]['pk']
     keys = [
-        v['dest'] for k, v in iteritems(mappings[db][collection])
+        (k, v['dest']) for k, v in iteritems(mappings[db][collection])
         if 'dest' in v
         and v['type'] not in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]
     ]
-    keys.sort()
+    keys.sort(key=lambda x: x[1])
 
     for document in documents:
         mapped_document = get_mapped_document(mappings, document, namespace)
         values = [
-            to_sql_value(extract_creation_date(mapped_document, primary_key))
+            to_sql_value(
+                extract_creation_date(mapped_document, primary_key),
+                vtype='TIMESTAMP'
+            )
         ]
 
-        for key in keys:
-            if key in mapped_document:
-                values.append(to_sql_value(mapped_document[key]))
+        for key, mapkey in keys:
+            field_mapping = mappings[db][collection][key]
+
+            if mapkey in mapped_document:
+                values.append(
+                    to_sql_value(
+                        mapped_document[mapkey],
+                        vtype=field_mapping['type']
+                    )
+                )
 
             else:
-                values.append(to_sql_value(None))
+                values.append(
+                    to_sql_value(
+                        None,
+                        vtype=field_mapping['type']
+                    )
+                )
 
         subquery = {
             'collection': collection,
@@ -221,7 +238,7 @@ def _sql_bulk_insert(query, mappings, namespace, documents):
                 'raw': document,
                 'mapped': mapped_document
             },
-            'keys': ['_creationDate'] + keys,
+            'keys': ['_creationDate'] + [k[1] for k in keys],
             'values': values,
             'pk': primary_key,
             'queries': []
@@ -294,23 +311,33 @@ def remove_control_chars(s):
     return control_char_re.sub('', s)
 
 
-def to_sql_value(value):
+def to_sql_value(value, vtype=None):
+    result = None
+
     if value is None:
-        return 'NULL'
+        result = 'NULL'
 
-    if isinstance(value, (int, long, float, complex)):
-        return str(value)
+    elif isinstance(value, (int, long, float, complex)):
+        result = str(value)
 
-    if isinstance(value, bool):
-        return str(value).upper()
+    elif isinstance(value, bool):
+        result = str(value).upper()
 
-    if isinstance(value, Atom):
-        return value
+    elif isinstance(value, ForeignKey):
+        result = value
 
-    if isinstance(value, basestring):
-        return u"'{0}'".format(remove_control_chars(value).replace("'", "''"))
+    elif isinstance(value, basestring):
+        result = u"'{0}'".format(
+            remove_control_chars(value).replace("'", "''")
+        )
 
-    return u"'{0}'".format(str(value))
+    else:
+        result = u"'{0}'".format(str(value))
+
+    if vtype is not None and not isinstance(result, ForeignKey):
+        result = u"{0}::{1}".format(result, vtype)
+
+    return result
 
 
 def object_id_adapter(object_id):
