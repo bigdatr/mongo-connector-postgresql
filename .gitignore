@@ -20,3 +20,4 @@ venv
 mongo_connector_postgresql.egg-info
 .coverage
 htmlcov
+server.log
