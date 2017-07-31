@@ -40,6 +40,9 @@ def handle_databases(scenario, outline, steps):
         })
     )
 
+    assert info.status_code == 200, \
+        "Impossible to create replicat set: {}".format(info.status_code)
+
     world.mongo_server = info.json().get('server_id')
     world.mongo_uri = info.json().get('mongodb_uri')
     world.mongo_conn = MongoClient(world.mongo_uri)
@@ -59,20 +62,16 @@ def handle_databases(scenario, outline, steps):
             world.mongo_connector.terminate()
             world.mongo_connector.wait()
 
-        requests.post(
-            'http://localhost:8889/servers/{0}'.format(world.mongo_server),
-            data=json.dumps({'action': 'stop'})
+        ret = requests.delete(
+            'http://localhost:8889/replica_sets/rs0'
         )
+        assert ret.status_code == 204, \
+            "Impossible to delete replica set: {}".format(ret.status_code)
 
         del world.mongo_server
         del world.mongo_uri
 
         world.pg_server.stop()
-
-        trailing = ['mongo-connector.log', 'oplog.timestamp', 'config.json']
-        for filename in trailing:
-            if os.path.exists(filename):
-                os.remove(filename)
 
         os.chdir(world.initial_dir)
         del world.result
@@ -118,6 +117,11 @@ def initialize_environ(self, environ):
 
 @step('I run mongo-connector')
 def run_mongo_connector(self):
+    trailing = ['mongo-connector.log', 'oplog.timestamp']
+    for filename in trailing:
+        if os.path.exists(filename):
+            os.remove(filename)
+
     world.mongo_connector = subprocess.Popen(
         "mongo-connector -c {0}/config.json".format(os.getcwd()),
         shell=True
