@@ -11,8 +11,7 @@ addons:
       - mongodb-upstart
       - mongodb-3.4-precise
     packages:
-      - mongodb-org-server
-      - mongodb-org-shell
+      - mongodb-org
 before_install:
   - pip install --upgrade pip setuptools
   - pip install mock>=2.0.0
