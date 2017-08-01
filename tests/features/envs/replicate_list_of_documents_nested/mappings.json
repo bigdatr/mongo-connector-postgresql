@@ -1,0 +1,35 @@
+{
+    "db_test_nested_array": {
+        "col_nested": {
+            "pk": "_id",
+            "_id": {
+                "type": "INT"
+            },
+            "a": {
+                "type": "_ARRAY",
+                "dest": "col_array_lvl1",
+                "fk": "id_nested"
+            }
+        },
+        "col_array_lvl1": {
+            "pk": "_id",
+            "id_nested": {
+                "type": "INT"
+            },
+            "b": {
+                "type": "_ARRAY",
+                "dest": "col_array_lvl2",
+                "fk": "id_lvl1"
+            }
+        },
+        "col_array_lvl2": {
+            "pk": "_id",
+            "id_lvl1": {
+                "type": "SERIAL"
+            },
+            "f": {
+                "type": "TEXT"
+            }
+        }
+    }
+}

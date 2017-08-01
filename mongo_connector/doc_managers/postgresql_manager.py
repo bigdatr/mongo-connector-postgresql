@@ -224,6 +224,10 @@ class DocManager(DocManagerBase):
     def update(self, document_id, update_spec, namespace, timestamp):
         db, collection = db_and_collection(namespace)
         updated_document = self.get_document_by_id(db, collection, document_id)
+        primary_key = self.mappings[db][collection]['pk']
+        mapped_field = self.mappings[db][collection].get(primary_key, {})
+        field_type = mapped_field.get('type')
+        doc_id = to_sql_value(document_id, vtype=field_type)
 
         if updated_document is None:
             return
@@ -231,8 +235,11 @@ class DocManager(DocManagerBase):
         for arrayField in get_any_array_fields(self.mappings, db, collection, updated_document):
             dest = self.mappings[db][collection][arrayField]['dest']
             fk = self.mappings[db][collection][arrayField]['fk']
-            sql_delete_rows_where(self.pgsql.cursor(), dest,
-                                  "{0} = {1}".format(fk, to_sql_value(document_id)))
+            sql_delete_rows_where(
+                self.pgsql.cursor(),
+                dest,
+                "{0} = {1}".format(fk, doc_id)
+            )
 
         self._upsert(namespace,
                      updated_document,
@@ -250,8 +257,15 @@ class DocManager(DocManagerBase):
         with self.pgsql.cursor() as cursor:
             db, collection = db_and_collection(namespace)
             primary_key = self.mappings[db][collection]['pk']
+            mapped_field = self.mappings[db][collection].get(primary_key, {})
+            field_type = mapped_field.get('type')
+            doc_id = to_sql_value(document_id, vtype=field_type)
             cursor.execute(
-                "DELETE from {0} WHERE {1} = '{2}';".format(collection.lower(), primary_key, str(document_id))
+                "DELETE from {0} WHERE {1} = {2};".format(
+                    collection.lower(),
+                    primary_key,
+                    doc_id
+                )
             )
             self.commit()
 

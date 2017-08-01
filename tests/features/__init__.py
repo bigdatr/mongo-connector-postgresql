@@ -19,10 +19,12 @@ import os
 @around.all
 @contextmanager
 def handle_pg_factory():
+    world.DEVNULL = open('/dev/null', 'w')
     world.Postgresql = PostgresqlFactory(cache_initialized_db=True)
     world.Postgresql.clear_cache()
     yield
     world.Postgresql.clear_cache()
+    world.DEVNULL.close()
 
 
 @around.each_example
@@ -45,7 +47,7 @@ def handle_databases(scenario, outline, steps):
 
     world.mongo_server = info.json().get('server_id')
     world.mongo_uri = info.json().get('mongodb_uri')
-    world.mongo_conn = MongoClient(world.mongo_uri)
+    world.mongo_conn = MongoClient(world.mongo_uri, w=1, j=True)
 
     world.pg_server = world.Postgresql()
     world.pg_uri = world.pg_server.url()
@@ -110,6 +112,8 @@ def initialize_environ(self, environ):
             mongo_port,
             world.envvars['DBNAME']
         ),
+        stdout=world.DEVNULL,
+        stderr=world.DEVNULL,
         shell=True
     )
     assert retcode == 0, "Impossible to insert dump in MongoDB database"
@@ -124,7 +128,9 @@ def run_mongo_connector(self):
 
     world.mongo_connector = subprocess.Popen(
         "mongo-connector -c {0}/config.json".format(os.getcwd()),
-        shell=True
+        shell=True,
+        stdout=world.DEVNULL,
+        stderr=world.DEVNULL,
     )
 
 
@@ -133,19 +139,20 @@ def wait_for_replication(self, seconds):
     sleep(int(seconds))
 
 
-@step('I delete the collection')
+@step('I delete documents from the collection')
 def delete_collection(self):
     db = world.mongo_conn[world.envvars['DBNAME']]
     collection = db[world.envvars['COLLECTION']]
-    collection.delete_many({})
+    spec = world.envvars.get('SPEC', {})
+    collection.delete_many(spec)
 
 
 @step('I update the collection')
 def update_collection(self):
     db = world.mongo_conn[world.envvars['DBNAME']]
     collection = db[world.envvars['COLLECTION']]
-    spec = db[world.envvars['SPEC']]
-    update = db[world.envvars['UPDATE']]
+    spec = world.envvars.get('SPEC', {})
+    update = world.envvars['UPDATE']
     collection.update_many(spec, update)
 
 

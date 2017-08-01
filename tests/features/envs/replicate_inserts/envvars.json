@@ -1,0 +1,13 @@
+{
+    "DBNAME": "db_test",
+    "COLLECTION": "col_test",
+    "QUERIES": [
+        {
+            "name": "count_entries",
+            "sql": "SELECT COUNT(*) AS c FROM col_test",
+            "expected": [
+                {"c": 2}
+            ]
+        }
+    ]
+}
