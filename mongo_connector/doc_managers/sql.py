@@ -121,12 +121,12 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
             with_stmts.append(
                 '{alias} ({columns}) AS (VALUES ({values}))'.format(
                     alias=data_alias,
-                    columns=','.join(values.keys()),
-                    values=','.join(values.values())
+                    columns=', '.join(values.keys()),
+                    values=', '.join(values.values())
                 )
             )
 
-            keys = ','.join(list(values.keys()) + list(foreign_keys.keys()))
+            keys = ', '.join(list(values.keys()) + list(foreign_keys.keys()))
             projection = [
                 '{0}.{1} AS {1}'.format(data_alias, key)
                 for key in values.keys()
@@ -147,8 +147,8 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
                 ]
                 aliases.append(parent_rows_alias)
 
-            projection = ','.join(projection)
-            aliases = ','.join(aliases)
+            projection = ', '.join(projection)
+            aliases = ', '.join(aliases)
 
             if not subquery['last']:
                 with_stmts.append(
@@ -171,7 +171,7 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
                 )
 
         sql = 'WITH {0} {1}'.format(
-            ','.join(with_stmts),
+            ', '.join(with_stmts),
             final_stmt
         )
 

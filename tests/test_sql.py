@@ -8,6 +8,7 @@ from bson.objectid import ObjectId
 
 from collections import OrderedDict
 from datetime import datetime
+from .fixtures import *
 
 
 class TestPostgreSQL(TestCase):
@@ -96,9 +97,7 @@ class TestPostgreSQL(TestCase):
         }
 
         sql.sql_bulk_insert(cursor, mapping, 'db.col', [doc])
-        cursor.execute.assert_called_with(
-            "INSERT INTO col (_creationDate,_id,field1,field2_subfield) VALUES (NULL,DEFAULT,'val',NULL) RETURNING _id AS col__id"
-        )
+        cursor.execute.assert_called_with(TEST_SQL_BULK_INSERT_1)
 
         doc = {
             '_id': 'foo',
@@ -109,9 +108,7 @@ class TestPostgreSQL(TestCase):
         }
 
         sql.sql_bulk_insert(cursor, mapping, 'db.col', [doc])
-        cursor.execute.assert_called_with(
-            "INSERT INTO col (_creationDate,_id,field1,field2_subfield) VALUES (NULL,DEFAULT,'val1','val2') RETURNING _id AS col__id"
-        )
+        cursor.execute.assert_called_with(TEST_SQL_BULK_INSERT_2)
 
     def test_sql_bulk_insert_array(self):
         cursor = MagicMock()
@@ -170,12 +167,10 @@ class TestPostgreSQL(TestCase):
 
         sql.sql_bulk_insert(cursor, mapping, 'db.col1', [doc, {}])
 
+
         cursor.execute.assert_has_calls([
-            call('INSERT INTO col_array (_creationDate,_id,field1,id_col1) VALUES (NULL,DEFAULT,\'val\',1) RETURNING _id AS col_array__id'),
-            call('INSERT INTO col_scalar (_creationDate,_id,id_col1,scalar) VALUES (NULL,DEFAULT,1,1) RETURNING _id AS col_scalar__id'),
-            call('INSERT INTO col_scalar (_creationDate,_id,id_col1,scalar) VALUES (NULL,DEFAULT,1,2) RETURNING _id AS col_scalar__id'),
-            call('INSERT INTO col_scalar (_creationDate,_id,id_col1,scalar) VALUES (NULL,DEFAULT,1,3) RETURNING _id AS col_scalar__id'),
-            call('INSERT INTO col1 (_creationDate,_id) VALUES (NULL,DEFAULT) RETURNING _id AS col1__id')
+            call(TEST_SQL_BULK_INSERT_ARRAY_1),
+            call(TEST_SQL_BULK_INSERT_ARRAY_2)
         ])
 
 
