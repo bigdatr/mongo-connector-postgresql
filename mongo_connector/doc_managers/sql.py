@@ -105,6 +105,9 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
                 else:
                     values[key] = val
 
+            foreign_keys_keys = sorted(foreign_keys.keys())
+            values_keys = sorted(values.keys())
+
             data_alias = '{0}_data_{1}'.format(
                 subquery['collection'],
                 subquery['idx']
@@ -121,15 +124,15 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
             with_stmts.append(
                 '{alias} ({columns}) AS (VALUES ({values}))'.format(
                     alias=data_alias,
-                    columns=', '.join(values.keys()),
-                    values=', '.join(values.values())
+                    columns=', '.join(values_keys),
+                    values=', '.join([values[key] for key in values_keys])
                 )
             )
 
-            keys = ', '.join(list(values.keys()) + list(foreign_keys.keys()))
+            keys = ', '.join(values_keys + foreign_keys_keys)
             projection = [
                 '{0}.{1} AS {1}'.format(data_alias, key)
-                for key in values.keys()
+                for key in values_keys
             ]
             aliases = [data_alias]
 
@@ -143,7 +146,7 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
                         foreign_keys[key],
                         key
                     )
-                    for key in foreign_keys
+                    for key in foreign_keys_keys
                 ]
                 aliases.append(parent_rows_alias)
 
