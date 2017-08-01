@@ -122,6 +122,8 @@ def initialize_environ(self, environ):
             *mongorestore.communicate()
         )
 
+    world.retries = world.envvars.get('RETRIES', 3)
+
 
 @step('I run mongo-connector')
 def run_mongo_connector(self):
@@ -141,6 +143,7 @@ def run_mongo_connector(self):
 @step('I wait (\d+) seconds for the replication to be done')
 def wait_for_replication(self, seconds):
     sleep(int(seconds))
+    world.wait = int(seconds)
 
 
 @step('I delete documents from the collection')
@@ -172,13 +175,29 @@ def run_sql_queries(self):
 
 @step('the SQL queries should return the appropriate results')
 def check_queries(self):
-    for query in world.envvars['QUERIES']:
-        qname = query['name']
-        result = world.result[qname]
-        expected = query['expected']
-        msg = 'Query {0} did not return appropriate result: {1}'.format(
-            qname,
-            result
-        )
+    success = True
+    messages = []
 
-        assert result == expected, msg
+    while world.retries > 0:
+        for query in world.envvars['QUERIES']:
+            qname = query['name']
+            result = world.result[qname]
+            expected = query['expected']
+
+            if result != expected:
+                msg = 'Query {} did not return appropriate result: {}'.format(
+                    qname,
+                    result
+                )
+                success = False
+                messages.append(msg)
+
+        if success:
+            break
+
+        world.retries -= 1
+        sleep(world.wait)
+        run_sql_queries(self)
+
+    if not success:
+        raise AssertionError('\n'.join(messages))
