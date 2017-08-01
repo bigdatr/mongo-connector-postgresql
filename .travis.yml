@@ -8,6 +8,8 @@ services:
     - postgresql
 before_install:
   - pip install --upgrade pip setuptools
+  - pip install mock>=2.0.0
+  - pip install -r requirements.test.txt
 install:
   - pip install coveralls
   - python setup.py install
