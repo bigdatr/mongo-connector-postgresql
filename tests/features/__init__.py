@@ -106,17 +106,21 @@ def initialize_environ(self, environ):
     parts = urlparse(world.mongo_uri)
     mongo_host = parts.hostname
     mongo_port = parts.port
-    retcode = subprocess.call(
+    mongorestore = subprocess.Popen(
         'mongorestore -h rs0/{} --port {} -d {} dump'.format(
             mongo_host,
             mongo_port,
             world.envvars['DBNAME']
         ),
-        stdout=world.DEVNULL,
-        stderr=world.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         shell=True
     )
-    assert retcode == 0, "Impossible to insert dump in MongoDB database"
+    retcode = mongorestore.wait()
+    assert retcode == 0, \
+        "Impossible to insert dump in MongoDB:\nOUT: {}\nERR: {}".format(
+            *mongorestore.communicate()
+        )
 
 
 @step('I run mongo-connector')
@@ -130,7 +134,7 @@ def run_mongo_connector(self):
         "mongo-connector -c {0}/config.json".format(os.getcwd()),
         shell=True,
         stdout=world.DEVNULL,
-        stderr=world.DEVNULL,
+        stderr=world.DEVNULL
     )
 
 
