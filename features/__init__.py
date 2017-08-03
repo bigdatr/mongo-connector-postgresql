@@ -82,7 +82,7 @@ def handle_databases(scenario, outline, steps):
 
 @step('I have the environment "([^"]*)"')
 def initialize_environ(self, environ):
-    os.chdir(os.path.join('tests', 'features', 'envs', environ))
+    os.chdir(os.path.join('features', 'envs', environ))
 
     with open('envvars.json') as f:
         world.envvars = json.load(f)
@@ -179,6 +179,8 @@ def check_queries(self):
     messages = []
 
     while world.retries > 0:
+        messages = []
+
         for query in world.envvars['QUERIES']:
             qname = query['name']
             result = world.result[qname]
