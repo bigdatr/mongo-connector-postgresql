@@ -3,9 +3,10 @@
 import unicodedata
 
 import re
+import traceback
 from builtins import chr
 from future.utils import iteritems
-from past.builtins import long, basestring
+from past.builtins import long, basestring, unicode
 from psycopg2._psycopg import AsIs
 import psycopg2
 
@@ -29,8 +30,11 @@ control_chars = ''.join(c for c in all_chars if unicodedata.category(c) == 'Cc')
 control_char_re = re.compile('[%s]' % re.escape(control_chars))
 
 
-class ForeignKey(str):
+class ForeignKey(unicode):
     def __str__(self):
+        return self
+
+    def __unicode__(self):
         return self
 
 
@@ -105,8 +109,8 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
                 else:
                     values[key] = val
 
-            foreign_keys_keys = sorted(foreign_keys.keys())
-            values_keys = sorted(values.keys())
+            foreign_keys_sorted = sorted(foreign_keys.keys())
+            values_sorted = sorted(values.keys())
 
             data_alias = '{0}_data_{1}'.format(
                 subquery['collection'],
@@ -124,15 +128,15 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
             with_stmts.append(
                 '{alias} ({columns}) AS (VALUES ({values}))'.format(
                     alias=data_alias,
-                    columns=', '.join(values_keys),
-                    values=', '.join([values[key] for key in values_keys])
+                    columns=', '.join(values_sorted),
+                    values=', '.join([values[key] for key in values_sorted])
                 )
             )
 
-            keys = ', '.join(values_keys + foreign_keys_keys)
+            keys = ', '.join(values_sorted + foreign_keys_sorted)
             projection = [
                 '{0}.{1} AS {1}'.format(data_alias, key)
-                for key in values_keys
+                for key in values_sorted
             ]
             aliases = [data_alias]
 
@@ -146,7 +150,7 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
                         foreign_keys[key],
                         key
                     )
-                    for key in foreign_keys_keys
+                    for key in foreign_keys_sorted
                 ]
                 aliases.append(parent_rows_alias)
 
@@ -338,6 +342,9 @@ def to_sql_value(value, vtype=None):
         result = u"'{0}'".format(str(value))
 
     if vtype is not None and not isinstance(result, ForeignKey):
+        if 'SERIAL' in vtype:
+            vtype = vtype.replace('SERIAL', 'INT')
+
         result = u"{0}::{1}".format(result, vtype)
 
     return result
