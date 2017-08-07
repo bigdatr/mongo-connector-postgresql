@@ -97,11 +97,15 @@ class DocManager(DocManagerBase):
                         if 'dest' in column_mapping:
                             name = column_mapping['dest']
                             column_type = column_mapping['type']
+                            nullable = column_mapping.get('nullable', True)
 
                             constraints = ''
                             if name == pk_name:
                                 constraints = "CONSTRAINT {0}_PK PRIMARY KEY".format(collection.upper())
                                 pk_found = True
+
+                            if not nullable:
+                                constraints = '{} NOT NULL'.format(constraints)
 
                             if column_type != ARRAY_TYPE and column_type != ARRAY_OF_SCALARS_TYPE:
                                 columns.append(name + ' ' + column_type + ' ' + constraints)
