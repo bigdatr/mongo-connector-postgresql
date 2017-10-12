@@ -79,6 +79,7 @@ This file should be named mappings.json. Here is a sample :
                 "description":{
                     "type":"TEXT",
                     "index": true,
+                    "nullable": false
                 },
                 "enable":{
                     "dest":"enabled",
@@ -99,6 +100,7 @@ Please notice the following :
 - If the original document in mongodb has a embedded document, everything is flattened to be inserted in PostgreSQL
 - One can define indices in two different ways : Using the array ``indices`` and a SQL definition or autogenerate index
  by setting the ``index`` field to true
+- Also, one can specify that the column should hold the not null constraint with the ``nullable`` parameters (default to ``false``)
 
 The connector also supports arrays of documents. Let say your Mongo database stores the following documents :
 
