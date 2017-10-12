@@ -1,0 +1,13 @@
+{
+    "db_test": {
+        "col_test": {
+            "pk": "_id",
+            "_id": {
+                "type": "INT"
+            },
+            "a": {
+                "type": "INT"
+            }
+        }
+    }
+}

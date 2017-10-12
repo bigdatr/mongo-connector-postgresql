@@ -1,0 +1,27 @@
+{
+    "DBNAME": "db_test_nested_array",
+    "COLLECTION": "col_nested",
+    "QUERIES": [
+        {
+            "name": "count_entries",
+            "sql": "SELECT COUNT(*) AS c FROM col_nested",
+            "expected": [
+                {"c": 1}
+            ]
+        },
+        {
+            "name": "count_entries_lvl1",
+            "sql": "SELECT COUNT(*) AS c FROM col_array_lvl1 WHERE id_nested = 1",
+            "expected": [
+                {"c": 3}
+            ]
+        },
+        {
+            "name": "count_entries_lvl2",
+            "sql": "SELECT COUNT(*) AS c FROM col_array_lvl2 WHERE id_lvl1 = 1",
+            "expected": [
+                {"c": 5}
+            ]
+        }
+    ]
+}

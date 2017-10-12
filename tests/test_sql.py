@@ -8,6 +8,7 @@ from bson.objectid import ObjectId
 
 from collections import OrderedDict
 from datetime import datetime
+from .fixtures import *
 
 
 class TestPostgreSQL(TestCase):
@@ -38,7 +39,7 @@ class TestPostgreSQL(TestCase):
     def test_sql_drop_table(self):
         cursor = MagicMock()
         sql.sql_drop_table(cursor, 'table')
-        cursor.execute.assert_called_with('DROP TABLE table')
+        cursor.execute.assert_called_with('DROP TABLE IF EXISTS table CASCADE')
 
     def test_sql_create_table(self):
         cursor = MagicMock()
@@ -49,6 +50,22 @@ class TestPostgreSQL(TestCase):
         sql.sql_create_table(cursor, 'table', columns)
         cursor.execute.assert_called_with(
             'CREATE TABLE table  (field TEXT,id INTEGER) '
+        )
+
+    def test_sql_add_foreign_keys(self):
+        cursor = MagicMock()
+        foreign_keys = [
+            {
+                'table': 'table',
+                'fk': 'reftable_id',
+                'ref': 'reftable',
+                'pk': 'id'
+            }
+        ]
+
+        sql.sql_add_foreign_keys(cursor, foreign_keys)
+        cursor.execute.assert_called_with(
+            'ALTER TABLE table ADD CONSTRAINT table_reftable_id_fk FOREIGN KEY (reftable_id) REFERENCES reftable(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED'
         )
 
     def test_sql_bulk_insert(self):
@@ -80,9 +97,7 @@ class TestPostgreSQL(TestCase):
         }
 
         sql.sql_bulk_insert(cursor, mapping, 'db.col', [doc])
-        cursor.execute.assert_called_with(
-            "INSERT INTO col (_creationDate,field1,field2_subfield) VALUES (NULL,'val',NULL)"
-        )
+        cursor.execute.assert_called_with(TEST_SQL_BULK_INSERT_1)
 
         doc = {
             '_id': 'foo',
@@ -93,9 +108,7 @@ class TestPostgreSQL(TestCase):
         }
 
         sql.sql_bulk_insert(cursor, mapping, 'db.col', [doc])
-        cursor.execute.assert_called_with(
-            "INSERT INTO col (_creationDate,field1,field2_subfield) VALUES (NULL,'val1','val2')"
-        )
+        cursor.execute.assert_called_with(TEST_SQL_BULK_INSERT_2)
 
     def test_sql_bulk_insert_array(self):
         cursor = MagicMock()
@@ -154,40 +167,11 @@ class TestPostgreSQL(TestCase):
 
         sql.sql_bulk_insert(cursor, mapping, 'db.col1', [doc, {}])
 
+
         cursor.execute.assert_has_calls([
-            call('INSERT INTO col_array (_creationDate,field1,id_col1) VALUES (NULL,\'val\',1)'),
-            call('INSERT INTO col_scalar (_creationDate,id_col1,scalar) VALUES (NULL,1,1),(NULL,1,2),(NULL,1,3)'),
-            call('INSERT INTO col1 (_creationDate) VALUES (NULL)')
+            call(TEST_SQL_BULK_INSERT_ARRAY_1),
+            call(TEST_SQL_BULK_INSERT_ARRAY_2)
         ])
-
-    def test_sql_insert(self):
-        cursor = MagicMock()
-        now = datetime.now()
-
-        # Use ordereddict to ensure correct order in generated SQL request
-        doc = OrderedDict()
-        doc['_id'] = ObjectId.from_datetime(now)
-        doc['field'] = 'val'
-
-        sql.sql_insert(cursor, 'table', doc, '_id')
-
-        doc['_creationDate'] = utils.extract_creation_date(doc, '_id')
-
-        cursor.execute.assert_called_with(
-            'INSERT INTO table  (_creationDate,_id,field)  VALUES  (%(_creationDate)s,%(_id)s,%(field)s)  ON CONFLICT (_id) DO UPDATE SET  (_creationDate,_id,field)  =  (%(_creationDate)s,%(_id)s,%(field)s) ',
-            doc
-        )
-
-        doc = {
-            'field': 'val'
-        }
-
-        sql.sql_insert(cursor, 'table', doc, '_id')
-
-        cursor.execute.assert_called_with(
-            'INSERT INTO table  (field)  VALUES  (%(field)s) ',
-            doc
-        )
 
 
 if __name__ == '__main__':

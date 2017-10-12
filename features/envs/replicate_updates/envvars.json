@@ -1,0 +1,21 @@
+{
+    "DBNAME": "db_test",
+    "COLLECTION": "col_test",
+    "SPEC": {
+        "a": {"$eq": 5}
+    },
+    "UPDATE": {
+        "$mul": {
+            "a": 2
+        }
+    },
+    "QUERIES": [
+        {
+            "name": "check_value",
+            "sql": "SELECT a FROM col_test WHERE a = 10",
+            "expected": [
+                {"a": 10}
+            ]
+        }
+    ]
+}
