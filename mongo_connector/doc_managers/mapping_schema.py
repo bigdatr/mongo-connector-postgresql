@@ -123,6 +123,9 @@ MAPPING_SCHEMA = {
                 },
                 "dest": {
                     "type": "string"
+                },
+                "nullable": {
+                    "type": "boolean"
                 }
             },
             "required": ["type"]
@@ -131,7 +134,10 @@ MAPPING_SCHEMA = {
             "properties": {
                 "type": {"enum": ["_ARRAY"]},
                 "dest": {"type": "string"},
-                "fk": {"type": "string"}
+                "fk": {"type": "string"},
+                "nullable": {
+                    "type": "boolean"
+                }
             },
             "required": ["type", "dest", "fk"]
         },
@@ -140,7 +146,10 @@ MAPPING_SCHEMA = {
                 "type": {"enum": ["_ARRAY_OF_SCALARS"]},
                 "dest": {"type": "string"},
                 "fk": {"type": "string"},
-                "valueField": {"type": "string"}
+                "valueField": {"type": "string"},
+                "nullable": {
+                    "type": "boolean"
+                }
             },
             "required": ["type", "dest", "fk", "valueField"]
         }
