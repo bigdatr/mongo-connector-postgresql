@@ -1,16 +1,15 @@
 # coding: utf8
-from future.utils import iteritems
 import jsonschema
-
+from future.utils import iteritems
 from mongo_connector.doc_managers.formatters import DocumentFlattener
+from mongo_connector.errors import InvalidConfiguration
+
+from mongo_connector.doc_managers.mapping_schema import MAPPING_SCHEMA
 from mongo_connector.doc_managers.utils import (
     db_and_collection,
     ARRAY_TYPE,
     ARRAY_OF_SCALARS_TYPE
 )
-from mongo_connector.doc_managers.mapping_schema import MAPPING_SCHEMA
-from mongo_connector.errors import InvalidConfiguration
-
 
 _formatter = DocumentFlattener()
 
@@ -104,7 +103,7 @@ def get_scalar_array_fields(mappings, db, collection):
     return [
         k for k, v in iteritems(mappings[db][collection])
         if 'type' in v and v['type'] == ARRAY_OF_SCALARS_TYPE
-        ]
+    ]
 
 
 def validate_mapping(mappings):
@@ -125,7 +124,9 @@ def validate_mapping(mappings):
         for collection in dbmapping:
             mapping = dbmapping[collection]
 
-            if mapping['pk'] not in mapping:
+            reversed_pk_mapping = get_reversed_pk_mapping(mapping)
+
+            if (reversed_pk_mapping is None or reversed_pk_mapping not in mapping) and mapping['pk'] not in mapping:
                 # look for a linked table
                 for linked_collection in dbmapping:
                     if linked_collection != collection:
@@ -134,8 +135,8 @@ def validate_mapping(mappings):
                             True
                             for field in linked_mapping
                             if field != 'pk'
-                            and linked_mapping[field]['type'] in ARRAYS_TYPE
-                            and linked_mapping[field]['dest'] == collection
+                               and linked_mapping[field]['type'] in ARRAYS_TYPE
+                               and linked_mapping[field]['dest'] == collection
                         ]
 
                         if len(links) > 0:
@@ -207,3 +208,12 @@ def validate_mapping(mappings):
                                         dest
                                     )
                                 )
+
+
+def get_reversed_pk_mapping(mapping):
+    if 'pk' not in mapping:
+        return None
+
+    for field in mapping:
+        if 'dest' in mapping[field] and mapping[field]['dest'] == mapping['pk']:
+            return field
