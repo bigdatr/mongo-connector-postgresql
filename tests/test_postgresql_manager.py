@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from unittest import TestCase, main
-from mock import MagicMock, patch, mock_open, call
 from time import time
-import json
+from unittest import TestCase, main
+
+from mock import MagicMock, patch, mock_open, call
 
 from mongo_connector.doc_managers import postgresql_manager
 from .fixtures import *
-
 
 MAPPING_RAW = '''{
     "db": {

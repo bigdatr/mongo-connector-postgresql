@@ -84,7 +84,7 @@ def sql_add_foreign_keys(cursor, foreign_keys):
 
 
 def unique_list(input_list):
-    return list(set(input_list))
+    return sorted(list(set(input_list)))
 
 
 def sql_bulk_insert(cursor, mappings, namespace, documents):
@@ -197,9 +197,6 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
             )
 
             LOG.error(u"Traceback:\n%s", traceback.format_exc())
-
-def unique_list(input_list):
-    return list(set(input_list))
 
 def _sql_bulk_insert(query, mappings, namespace, documents):
     if not documents:
