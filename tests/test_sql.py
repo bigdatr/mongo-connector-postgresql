@@ -44,8 +44,8 @@ class TestPostgreSQL(TestCase):
     def test_sql_create_table(self):
         cursor = MagicMock()
         columns = [
-            'id INTEGER',
-            'field TEXT'
+            'field TEXT',
+            'id INTEGER'
         ]
         sql.sql_create_table(cursor, 'table', columns)
         cursor.execute.assert_called_with(

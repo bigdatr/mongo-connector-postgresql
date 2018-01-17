@@ -37,7 +37,7 @@ class ForeignKey(unicode):
 
 
 def to_sql_list(items):
-    return ' ({0}) '.format(','.join(set(items)))
+    return ' ({0}) '.format(','.join(items))
 
 
 def sql_table_exists(cursor, table):
@@ -65,7 +65,7 @@ def sql_drop_table(cursor, tableName):
 
 def sql_create_table(cursor, tableName, columns):
     columns.sort()
-    sql = u"CREATE TABLE {0} {1}".format(tableName.lower(), to_sql_list(columns))
+    sql = u"CREATE TABLE {0} {1}".format(tableName.lower(), to_sql_list(unique_list(columns)))
     cursor.execute(sql)
 
 
