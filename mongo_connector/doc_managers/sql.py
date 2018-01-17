@@ -1,15 +1,14 @@
 # coding: utf8
 
-import unicodedata
-
 import re
 import traceback
+import unicodedata
 from builtins import chr
+
+import psycopg2
 from future.utils import iteritems
 from past.builtins import long, basestring, unicode
 from psycopg2._psycopg import AsIs
-import psycopg2
-
 
 from mongo_connector.doc_managers.mappings import get_mapped_document
 from mongo_connector.doc_managers.utils import (
@@ -23,7 +22,6 @@ from mongo_connector.doc_managers.utils import (
     ARRAY_TYPE,
     LOG
 )
-
 
 all_chars = (chr(i) for i in range(0x10000))
 control_chars = ''.join(c for c in all_chars if unicodedata.category(c) == 'Cc')
@@ -39,7 +37,7 @@ class ForeignKey(unicode):
 
 
 def to_sql_list(items):
-    return ' ({0}) '.format(','.join(items))
+    return ' ({0}) '.format(','.join(set(items)))
 
 
 def sql_table_exists(cursor, table):
@@ -83,6 +81,10 @@ def sql_add_foreign_keys(cursor, foreign_keys):
             foreign_key['pk']
         )
         cursor.execute(cmd)
+
+
+def unique_list(input_list):
+    return list(set(input_list))
 
 
 def sql_bulk_insert(cursor, mappings, namespace, documents):
@@ -204,11 +206,11 @@ def _sql_bulk_insert(query, mappings, namespace, documents):
     db, collection = db_and_collection(namespace)
 
     primary_key = mappings[db][collection]['pk']
-    keys = [
+    keys = unique_list([
         (k, v['dest']) for k, v in iteritems(mappings[db][collection])
         if 'dest' in v
-        and v['type'] not in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]
-    ]
+           and v['type'] not in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]
+    ])
     keys.sort(key=lambda x: x[1])
 
     for document in documents:
@@ -270,6 +272,7 @@ def _sql_bulk_insert(query, mappings, namespace, documents):
             mappings,
             primary_key
         )
+
 
 def insert_scalar_arrays(collection, query, db, document, mapped_document, mappings, primary_key):
     pk = mapped_document.get(
