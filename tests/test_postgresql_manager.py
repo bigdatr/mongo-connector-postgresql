@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from time import time
 from unittest import TestCase, main
-
 from mock import MagicMock, patch, mock_open, call
+from time import time
+import json
 
 from mongo_connector.doc_managers import postgresql_manager
-from .fixtures import *
+
 
 MAPPING_RAW = '''{
     "db": {
@@ -131,6 +131,9 @@ class TestPostgreSQLManager(TestCase):
         self.ospath_patcher = patch(
             'mongo_connector.doc_managers.postgresql_manager.os.path'
         )
+        self.logging_patcher = patch(
+            'mongo_connector.doc_managers.postgresql_manager.logging'
+        )
         self.validate_mapping_patcher = patch(
             'mongo_connector.doc_managers.postgresql_manager.validate_mapping'
         )
@@ -139,6 +142,7 @@ class TestPostgreSQLManager(TestCase):
         self.mongoclient = self.mongoclient_patcher.start()
         self.builtin_open = self.builtin_open_patcher.start()
         self.ospath = self.ospath_patcher.start()
+        self.logging = self.logging_patcher.start()
         self.validate_mapping = self.validate_mapping_patcher.start()
 
     def tearDown(self):
@@ -146,6 +150,7 @@ class TestPostgreSQLManager(TestCase):
         self.mongoclient_patcher.stop()
         self.builtin_open_patcher.stop()
         self.ospath_patcher.stop()
+        self.logging_patcher.stop()
         self.validate_mapping_patcher.stop()
 
 
@@ -184,9 +189,8 @@ class TestManagerInitialization(TestPostgreSQLManager):
             MAPPING
         )
 
-        pconn.set_session.assert_called_with(deferrable=True)
         cursor.execute.assert_has_calls([
-            call('DROP TABLE IF EXISTS col CASCADE'),
+            call('DROP TABLE col'),
             call(
                 'CREATE TABLE col  (_creationdate TIMESTAMP,_id INT CONSTRAINT COL_PK PRIMARY KEY,field1 TEXT ) '
             ),
@@ -195,9 +199,6 @@ class TestManagerInitialization(TestPostgreSQLManager):
             ),
             call(
                 'CREATE INDEX idx_col__creation_date ON col (_creationdate DESC)'
-            ),
-            call(
-                'ALTER TABLE col_field2 ADD CONSTRAINT col_field2_id_col_fk FOREIGN KEY (id_col) REFERENCES col(_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED'
             )
         ], any_order=True)
 
@@ -256,7 +257,16 @@ class TestManager(TestPostgreSQLManager):
 
         self.docmgr.upsert(doc, 'db.col', now)
 
-        self.cursor.execute.assert_called_with(TEST_PGMAN_UPSERT)
+        self.cursor.execute.assert_has_calls([
+            call(
+                'INSERT INTO col_field2  (id_col,subfield1)  VALUES  (%(id_col)s,%(subfield1)s) ',
+                {'id_col': 1, 'subfield1': 'subval1'}
+            ),
+            call(
+                'INSERT INTO col  (_id,field1)  VALUES  (%(_id)s,%(field1)s)  ON CONFLICT (_id) DO UPDATE SET  (_id,field1)  =  (%(_id)s,%(field1)s) ',
+                {'_id': 1, 'field1': 'val1'}
+            )
+        ], any_order=True)
         self.pconn.commit.assert_called()
 
     def test_bulk_upsert(self):
@@ -286,9 +296,21 @@ class TestManager(TestPostgreSQLManager):
         self.docmgr.bulk_upsert([doc1, doc2, doc3], 'db.col', now)
 
         self.cursor.execute.assert_has_calls([
-            call(TEST_PGMAN_BULK_UPSERT_1),
-            call(TEST_PGMAN_BULK_UPSERT_2),
-            call(TEST_PGMAN_BULK_UPSERT_3)
+            call(
+                "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,NULL,1,'subval1')"
+            ),
+            call(
+                "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,NULL,2,'subval2')"
+            ),
+            call(
+                "INSERT INTO col (_creationDate,_id,field1) VALUES (NULL,1,'val1'),(NULL,2,'val2')"
+            ),
+            call(
+                "INSERT INTO col_field2 (_creationDate,_id,id_col,subfield1) VALUES (NULL,NULL,3,'subval3')"
+            ),
+            call(
+                "INSERT INTO col (_creationDate,_id,field1) VALUES (NULL,3,'val3')"
+            )
         ], any_order=True)
         self.pconn.commit.assert_called()
 
@@ -313,9 +335,16 @@ class TestManager(TestPostgreSQLManager):
 
         self.cursor.execute.assert_has_calls([
             call(
-                'DELETE FROM col WHERE _id = 1'
+                'DELETE FROM col_field2 WHERE id_col = 1'
             ),
-            call(TEST_PGMAN_UPDATE)
+            call(
+                'INSERT INTO col_field2  (id_col,subfield1)  VALUES  (%(id_col)s,%(subfield1)s) ',
+                {'id_col': 1, 'subfield1': 'subval1'}
+            ),
+            call(
+                'INSERT INTO col  (_id,field1)  VALUES  (%(_id)s,%(field1)s)  ON CONFLICT (_id) DO UPDATE SET  (_id,field1)  =  (%(_id)s,%(field1)s) ',
+                {'_id': 1, 'field1': 'val1'}
+            )
         ], any_order=True)
         self.pconn.commit.assert_called()
 
@@ -324,7 +353,7 @@ class TestManager(TestPostgreSQLManager):
         self.docmgr.remove(1, 'db.col', now)
 
         self.cursor.execute.assert_called_with(
-            'DELETE from col WHERE _id = 1::INT;'
+            'DELETE from col WHERE _id = \'1\';'
         )
         self.pconn.commit.assert_called()
 

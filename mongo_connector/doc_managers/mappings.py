@@ -124,10 +124,8 @@ def validate_mapping(mappings):
 
         for collection in dbmapping:
             mapping = dbmapping[collection]
-            reversed_pk_mapping = get_reversed_pk_mapping(mapping)
 
-            if (reversed_pk_mapping is None or reversed_pk_mapping not in mapping) and \
-                            mapping['pk'] not in mapping:
+            if mapping['pk'] not in mapping:
                 # look for a linked table
                 for linked_collection in dbmapping:
                     if linked_collection != collection:
@@ -209,14 +207,3 @@ def validate_mapping(mappings):
                                         dest
                                     )
                                 )
-
-
-def get_reversed_pk_mapping(mapping):
-    if 'pk' not in mapping:
-        return None
-
-    for field in mapping:
-        if 'dest' in mapping[field] and mapping[field]['dest'] == mapping['pk']:
-            return field
-
-    return None

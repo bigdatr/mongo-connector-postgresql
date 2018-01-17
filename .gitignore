@@ -6,7 +6,7 @@ build
 MANIFEST
 mongo-connector.log
 oplog.timestamp
-/mappings.json
+mappings.json
 mappings_bak.json
 run-db.sh
 .*.swp
@@ -20,4 +20,3 @@ venv
 mongo_connector_postgresql.egg-info
 .coverage
 htmlcov
-server.log
