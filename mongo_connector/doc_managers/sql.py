@@ -198,6 +198,8 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
 
             LOG.error(u"Traceback:\n%s", traceback.format_exc())
 
+def unique_list(input_list):
+    return list(set(input_list))
 
 def _sql_bulk_insert(query, mappings, namespace, documents):
     if not documents:
@@ -209,7 +211,7 @@ def _sql_bulk_insert(query, mappings, namespace, documents):
     keys = unique_list([
         (k, v['dest']) for k, v in iteritems(mappings[db][collection])
         if 'dest' in v
-           and v['type'] not in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]
+        and v['type'] not in [ARRAY_TYPE, ARRAY_OF_SCALARS_TYPE]
     ])
     keys.sort(key=lambda x: x[1])
 
