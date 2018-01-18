@@ -1,10 +1,10 @@
 # coding: utf8
 
 import logging
-import unicodedata
-
 import re
+import unicodedata
 from builtins import chr
+
 from future.utils import iteritems
 from past.builtins import long, basestring
 from psycopg2._psycopg import AsIs
@@ -49,7 +49,7 @@ def sql_drop_table(cursor, tableName):
 
 def sql_create_table(cursor, tableName, columns):
     columns.sort()
-    sql = u"CREATE TABLE {0} {1}".format(tableName.lower(), to_sql_list(columns))
+    sql = u"CREATE TABLE {0} {1}".format(tableName.lower(), to_sql_list(unique(columns)))
     cursor.execute(sql)
 
 
@@ -60,12 +60,11 @@ def sql_bulk_insert(cursor, mappings, namespace, documents):
     db, collection = db_and_collection(namespace)
 
     primary_key = mappings[db][collection]['pk']
-    keys = [
+    keys = unique([
         v['dest'] for k, v in iteritems(mappings[db][collection])
         if 'dest' in v and v['type'] != ARRAY_TYPE
-        and v['type'] != ARRAY_OF_SCALARS_TYPE
-        ]
-    keys.sort()
+           and v['type'] != ARRAY_OF_SCALARS_TYPE
+    ])
 
     values = []
 
@@ -179,3 +178,7 @@ def to_sql_value(value):
 
 def object_id_adapter(object_id):
     return AsIs(to_sql_value(object_id))
+
+
+def unique(input_list):
+    return sorted(list(set(input_list)))
