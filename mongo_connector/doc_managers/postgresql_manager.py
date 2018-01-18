@@ -13,34 +13,12 @@ from mongo_connector.errors import InvalidConfiguration
 from psycopg2.extensions import register_adapter
 from pymongo import MongoClient
 
-from mongo_connector.doc_managers.mappings import (
-    is_mapped,
-    get_mapped_document,
-    get_primary_key,
-    get_scalar_array_fields,
-    validate_mapping
-)
-from mongo_connector.doc_managers.sql import (
-    sql_table_exists,
-    sql_create_table,
-    sql_insert,
-    sql_delete_rows,
-    sql_bulk_insert,
-    object_id_adapter,
-    sql_delete_rows_where,
-    to_sql_value,
-    sql_drop_table
-)
-
-from mongo_connector.doc_managers.utils import (
-    get_array_fields,
-    db_and_collection,
-    get_any_array_fields,
-    ARRAY_OF_SCALARS_TYPE,
-    ARRAY_TYPE,
-    get_nested_field_from_document
-)
-
+from mongo_connector.doc_managers.mappings import is_mapped, get_mapped_document, get_primary_key, \
+    get_scalar_array_fields
+from mongo_connector.doc_managers.sql import sql_table_exists, sql_create_table, sql_insert, sql_delete_rows, \
+    sql_bulk_insert, object_id_adapter, sql_delete_rows_where, to_sql_value, sql_drop_table
+from mongo_connector.doc_managers.utils import get_array_fields, db_and_collection, get_any_array_fields, \
+    ARRAY_OF_SCALARS_TYPE, ARRAY_TYPE, get_nested_field_from_document
 
 MAPPINGS_JSON_FILE_NAME = 'mappings.json'
 
@@ -74,7 +52,6 @@ class DocManager(DocManagerBase):
         with open(MAPPINGS_JSON_FILE_NAME) as mappings_file:
             self.mappings = json.load(mappings_file)
 
-        validate_mapping(self.mappings)
         self._init_schema()
 
     def _init_schema(self):
@@ -97,15 +74,11 @@ class DocManager(DocManagerBase):
                         if 'dest' in column_mapping:
                             name = column_mapping['dest']
                             column_type = column_mapping['type']
-                            nullable = column_mapping.get('nullable', True)
 
                             constraints = ''
                             if name == pk_name:
                                 constraints = "CONSTRAINT {0}_PK PRIMARY KEY".format(collection.upper())
                                 pk_found = True
-
-                            if not nullable:
-                                constraints = '{} NOT NULL'.format(constraints)
 
                             if column_type != ARRAY_TYPE and column_type != ARRAY_OF_SCALARS_TYPE:
                                 columns.append(name + ' ' + column_type + ' ' + constraints)
