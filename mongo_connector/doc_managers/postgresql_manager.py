@@ -123,8 +123,34 @@ class DocManager(DocManagerBase):
             primary_key = self.mappings[db][collection]['pk']
             sql_insert(cursor, collection, mapped_document, primary_key)
 
-            insert_document_arrays(collection, cursor, db, document, mapped_document, self.mappings, primary_key)
-            insert_scalar_arrays(collection, cursor, db, document, mapped_document, self.mappings, primary_key)
+            self._upsert_array_fields(collection, cursor, db, document, mapped_document, namespace, timestamp)
+            self.upsert_scalar_array_fields(collection, cursor, db, document, mapped_document, namespace, timestamp)
+
+    def upsert_scalar_array_fields(self, collection, cursor, db, document, mapped_document, namespace, timestamp):
+        for scalarArrayField in get_scalar_array_fields(self.mappings, db, collection):
+            dest = self.mappings[db][collection][scalarArrayField]['dest']
+            fk = self.mappings[db][collection][scalarArrayField]['fk']
+            value_field = self.mappings[db][collection][scalarArrayField]['valueField']
+            dest_namespace = u"{0}.{1}".format(db, dest)
+
+            values = get_nested_field_from_document(document, scalarArrayField)
+
+            if values is not None and isinstance(values, list):
+                for value in values:
+                    updated_item = {fk: mapped_document[get_primary_key(self.mappings, namespace)], value_field: value}
+                    self._upsert(dest_namespace, updated_item, cursor, timestamp)
+
+    def _upsert_array_fields(self, collection, cursor, db, document, mapped_document, namespace, timestamp):
+        for arrayField in get_array_fields(self.mappings, db, collection, document):
+                dest = self.mappings[db][collection][arrayField]['dest']
+                fk = self.mappings[db][collection][arrayField]['fk']
+                dest_namespace = u"{0}.{1}".format(db, dest)
+
+                linked_documents = get_nested_field_from_document(document, arrayField)
+
+                for linked_document in linked_documents:
+                    linked_document[fk] = mapped_document[get_primary_key(self.mappings, namespace)]
+                    self._upsert(dest_namespace, linked_document, cursor, timestamp)
 
     def get_linked_tables(self, database, collection):
         linked_tables = []
