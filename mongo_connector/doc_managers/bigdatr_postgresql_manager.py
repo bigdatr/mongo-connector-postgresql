@@ -1,10 +1,41 @@
+import json
+import os
+import psycopg2
+from bson.objectid import ObjectId
 from mongo_connector.doc_managers.bigdatr_sql import sql_create_table
+from mongo_connector.doc_managers.formatters import DocumentFlattener
 from mongo_connector.doc_managers.postgresql_manager import ARRAY_OF_SCALARS_TYPE
 from mongo_connector.doc_managers.postgresql_manager import ARRAY_TYPE
 from mongo_connector.doc_managers.postgresql_manager import DocManager
+from mongo_connector.doc_managers.sql import object_id_adapter
+from mongo_connector.errors import InvalidConfiguration
+from psycopg2.extensions import register_adapter
+from pymongo import MongoClient
 
 
 class DocManager(DocManager):
+    def __init__(self, url, unique_key='_id', auto_commit_interval=None, chunk_size=100, **kwargs):
+        self.url = url
+        self.unique_key = unique_key
+        self.auto_commit_interval = auto_commit_interval
+        self.chunk_size = chunk_size
+        self._formatter = DocumentFlattener()
+        self.pgsql = psycopg2.connect(url)
+        self.insert_accumulator = {}
+        self.client = MongoClient(os.getenv('MONGO_CONNECTION'))
+
+        register_adapter(ObjectId, object_id_adapter)
+
+        mappings_file = os.getenv("POSTGRES_CONFIG")
+
+        if not os.path.isfile(mappings_file):
+            raise InvalidConfiguration("no mapping file found")
+
+        with open(mappings_file) as mappings_file:
+            self.mappings = json.load(mappings_file)
+
+        self._init_schema()
+
     def _init_schema(self):
         self.prepare_mappings()
 
